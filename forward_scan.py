@@ -24,20 +24,46 @@ from datetime import datetime, timezone
 from jinja2 import Template
 
 # ---------- Configuration ----------
-STARTING_BALANCE = 62.0
-TRADE_MODE = "multi"          # "single" = 1 concurrent trade, "multi" = up to 3
-BREAKEVEN_ENABLED = False
+# Balance and trade mode live in config.json (edit that file directly on
+# GitHub — no code changes needed). These are only the fallback defaults
+# used if config.json is missing.
+DEFAULT_STARTING_BALANCE = 62.0
+DEFAULT_TRADE_MODE = "single"   # "single" = 1 concurrent trade, "multi" = up to 3
+
 PAIRS = ["ETH/USDT", "SOL/USDT"]
 LOOKBACK_DAYS = 60             # candles fetched each run — plenty for the 6-candle structure window
-BREAKEVEN_TRIGGER_R = 1.3
 LIMIT_FILL_WINDOW = 6          # candles to wait for a retest (24h on 4H)
 EXIT_WINDOW = 10                # candles to wait for stop/target before calling it expired
+BREAKEVEN_ENABLED = False       # not exposed as a control — always off
+BREAKEVEN_TRIGGER_R = 1.3       # only matters if BREAKEVEN_ENABLED is ever flipped on
 
 TRADE_MODE_LIMITS = {"single": 1, "multi": 3}
-MAX_CONCURRENT = TRADE_MODE_LIMITS.get(TRADE_MODE, 1)
 
 STATE_PATH = "state.json"
+CONFIG_PATH = "config.json"
 DOCS_DIR = "docs"
+
+
+def load_config():
+    """
+    Reads config.json, which is yours to edit directly on GitHub — change
+    the balance or trade mode any time, no code editing needed. Takes
+    effect on the next scan run (minimum 30 min, since that's the schedule).
+    """
+    defaults = {"starting_balance": DEFAULT_STARTING_BALANCE, "trade_mode": DEFAULT_TRADE_MODE}
+    if not os.path.exists(CONFIG_PATH):
+        return defaults
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            cfg = json.load(f)
+    except Exception:
+        return defaults
+
+    starting_balance = float(cfg.get("starting_balance", DEFAULT_STARTING_BALANCE))
+    trade_mode = cfg.get("trade_mode", DEFAULT_TRADE_MODE)
+    if trade_mode not in TRADE_MODE_LIMITS:
+        trade_mode = DEFAULT_TRADE_MODE
+    return {"starting_balance": starting_balance, "trade_mode": trade_mode}
 
 
 def load_state():
@@ -46,8 +72,8 @@ def load_state():
             return json.load(f)
     return {
         "forward_test_start_ts": None,   # set on first run
-        "starting_balance": STARTING_BALANCE,
-        "balance": STARTING_BALANCE,
+        "starting_balance": DEFAULT_STARTING_BALANCE,
+        "balance": DEFAULT_STARTING_BALANCE,
         "closed_trades": [],
         "last_run": None
     }
@@ -146,6 +172,10 @@ def fetch_recent(exchange, symbol, days_back):
 
 
 def run_forward_scan():
+    config = load_config()
+    global MAX_CONCURRENT
+    MAX_CONCURRENT = TRADE_MODE_LIMITS[config['trade_mode']]
+
     state = load_state()
     now = datetime.now(timezone.utc)
     now_ms = int(now.timestamp() * 1000)
@@ -153,9 +183,12 @@ def run_forward_scan():
     if state["forward_test_start_ts"] is None:
         state["forward_test_start_ts"] = now_ms  # anchor: only signals from this moment on ever count
 
+    # your balance is whatever config.json says — editable any time, no code changes
+    state["starting_balance"] = config["starting_balance"]
+
     exchange = ccxt.okx({'enableRateLimit': True})
-    all_candidates = []      # freshly detected + still-pending setups, across both symbols
-    all_open_trades = []     # currently filled, unresolved trades
+    all_candidates = []       # pending setups (still awaiting retest) — always reported, no slot needed
+    raw_filled = []           # every setup that got a retest fill, BEFORE concurrency selection
     symbol_frames = {}
     fetch_errors = []
 
@@ -209,7 +242,7 @@ def run_forward_scan():
                 })
                 continue
 
-            # filled
+            # filled — but NOT yet decided whether it's actually taken (concurrency limit applies below)
             entry_price = broken_level
             risk_pips = abs(entry_price - sl_price)
             if risk_pips == 0:
@@ -220,21 +253,56 @@ def run_forward_scan():
             exit_result = simulate_exit_live(df, fill_idx, is_bullish, entry_price, sl_price, tp_price,
                                               risk_pips, BREAKEVEN_ENABLED)
 
-            base = {
+            raw_filled.append({
                 'symbol': symbol, 'is_bullish': is_bullish, 'score': score,
                 'signal_time': c_candle['timestamp'], 'entry_time': df.iloc[fill_idx]['timestamp'],
-                'entry_price': entry_price, 'volatility_ratio': volatility_ratio
-            }
+                'entry_price': entry_price, 'volatility_ratio': volatility_ratio,
+                'exit_result': exit_result
+            })
 
+    # --- apply the concurrency limit: walk every filled setup in true time
+    #     order, only accepting one when a slot is actually free. This is
+    #     the same rule the backtest engine uses — a setup on the other pair
+    #     simply doesn't count if the account was already occupied. ---
+    raw_filled.sort(key=lambda t: t['entry_time'])
+    grouped = {}
+    for t in raw_filled:
+        grouped.setdefault(t['entry_time'], []).append(t)
+
+    open_exits = []   # exit timestamps of accepted trades; float('inf') for still-open ones
+    all_open_trades = []
+    all_candidates_filled = []
+
+    for ts in sorted(grouped.keys()):
+        group = grouped[ts]
+        open_exits = [e for e in open_exits if e > ts]
+        available_slots = MAX_CONCURRENT - len(open_exits)
+        if available_slots <= 0:
+            continue  # account fully occupied — every setup at this moment is passed over
+
+        ranked = sorted(group, key=lambda c: c['score'], reverse=True)
+        chosen = ranked[:available_slots]
+
+        for t in chosen:
+            exit_result = t['exit_result']
             if exit_result['status'] == 'open':
-                all_open_trades.append(base)
+                open_exits.append(float('inf'))
+                all_open_trades.append(t)
             else:
-                base.update({
-                    'exit_time': df.iloc[exit_result['exit_index']]['timestamp'],
+                exit_ts_val = t['entry_time']  # placeholder, real value set below
+                exit_index = exit_result['exit_index']
+                # need the actual candle timestamp for this exit — resolved via symbol_frames
+                exit_ts_val = symbol_frames[t['symbol']].iloc[exit_index]['timestamp']
+                open_exits.append(exit_ts_val)
+                t.update({
+                    'exit_time': exit_ts_val,
                     'outcome': exit_result['outcome'],
-                    'r_multiple': exit_result['r_multiple']
+                    'r_multiple': exit_result['r_multiple'],
+                    'status': 'resolved'
                 })
-                all_candidates.append({**base, 'status': 'resolved'})
+                all_candidates_filled.append(t)
+
+    all_candidates.extend(all_candidates_filled)
 
     # --- settle resolved trades not already recorded, oldest first ---
     already_closed_keys = {(t['symbol'], t['entry_time']) for t in state['closed_trades']}
@@ -323,10 +391,11 @@ def render_dashboard(state, pending_setups, open_trades, fetch_errors):
     with open('templates/history_template.html') as f:
         history_tpl = Template(f.read())
 
+    mode_label = "multi" if MAX_CONCURRENT == TRADE_MODE_LIMITS["multi"] else "single"
     common = {
         'metrics': metrics, 'last_run': state['last_run'],
         'open_trades': display_open, 'pending_setups': display_pending,
-        'fetch_errors': fetch_errors, 'trade_mode': TRADE_MODE, 'breakeven_enabled': BREAKEVEN_ENABLED
+        'fetch_errors': fetch_errors, 'trade_mode': mode_label, 'breakeven_enabled': BREAKEVEN_ENABLED
     }
 
     with open(os.path.join(DOCS_DIR, 'index.html'), 'w') as f:
