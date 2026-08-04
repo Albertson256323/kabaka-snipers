@@ -153,7 +153,7 @@ def run_forward_scan():
     if state["forward_test_start_ts"] is None:
         state["forward_test_start_ts"] = now_ms  # anchor: only signals from this moment on ever count
 
-    exchange = ccxt.bybit({'enableRateLimit': True})
+    exchange = ccxt.okx({'enableRateLimit': True})
     all_candidates = []      # freshly detected + still-pending setups, across both symbols
     all_open_trades = []     # currently filled, unresolved trades
     symbol_frames = {}
