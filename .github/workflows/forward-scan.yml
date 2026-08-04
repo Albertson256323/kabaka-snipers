@@ -1,0 +1,35 @@
+name: Forward Test Scan
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # backup only — GitHub's own scheduler drifts under load
+  workflow_dispatch: {}       # this is what cron-job.org actually calls
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install ccxt pandas jinja2
+
+      - name: Run forward scan
+        run: python forward_scan.py
+
+      - name: Commit updated state + dashboard
+        run: |
+          git config user.name "kabaka-snipers-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add state.json docs/
+          git diff --quiet --cached || git commit -m "Forward scan: $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
