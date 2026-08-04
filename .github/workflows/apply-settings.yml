@@ -1,0 +1,80 @@
+name: Apply Bot Settings
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+jobs:
+  apply:
+    if: contains(github.event.issue.labels.*.name, 'settings')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Parse settings from issue
+        id: parse
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: python apply_settings.py
+
+      - name: Commit updated config
+        if: steps.parse.outputs.result == 'success'
+        run: |
+          git config user.name "kabaka-snipers-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add config.json
+          git diff --quiet --cached || git commit -m "Settings update via issue #${{ github.event.issue.number }}"
+          git push
+
+      - name: Comment success
+        if: steps.parse.outputs.result == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "✅ Settings applied:\n\n" + `${{ steps.parse.outputs.message }}` + "\n\nTakes effect on the next scan (within 30 min)."
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: "closed"
+            });
+
+      - name: Comment failure
+        if: steps.parse.outputs.result == 'failed'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "❌ Couldn't apply these settings:\n\n" + `${{ steps.parse.outputs.message }}` + "\n\nEdit this issue and re-check the fields, or close it and open a fresh one."
+            });
+
+      - name: Trigger an immediate scan
+        if: steps.parse.outputs.result == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'forward-scan.yml',
+              ref: 'main'
+            });
