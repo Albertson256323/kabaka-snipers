@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kabaka Snipers &middot; Forward Test</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <header class="masthead">
+        <div class="brand">
+            <div class="brand-mark">KS</div>
+            <div>
+                <div class="brand-name">KABAKA SNIPERS</div>
+                <div class="brand-sub">Forward Test &middot; Live, Real-Time</div>
+            </div>
+        </div>
+        <nav class="masthead-nav">
+            <a href="index.html" class="active">Overview</a>
+            <a href="history.html">History</a>
+        </nav>
+    </header>
+
+    <div class="ticker">
+        <span class="ticker-dot"></span>
+        <span class="ticker-text">FORWARD TEST &mdash; NO REAL ORDERS &mdash; {{ trade_mode|upper }}-MODE &middot; BE {{ 'ON' if breakeven_enabled else 'OFF' }} &middot; LAST SCAN {{ last_run }}</span>
+    </div>
+
+    <main class="shell">
+        <div class="page-head">
+            <h1>Forward Test Overview</h1>
+            <span class="page-head-note mono">Only counts signals formed since forward-testing began</span>
+        </div>
+
+        {% if fetch_errors %}
+        <div class="alert err" style="margin-bottom: 20px;">
+            {% for err in fetch_errors %}{{ err }}<br>{% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="stat-grid">
+            <div class="stat">
+                <div class="stat-label">Initial Capital</div>
+                <div class="stat-value">{{ metrics.initial }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Current Balance</div>
+                <div class="stat-value">{{ metrics.final }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Net Growth</div>
+                <div class="stat-value {{ 'up' if '+' in metrics.net else 'down' }}">{{ metrics.net }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Closed Trades</div>
+                <div class="stat-value">{{ metrics.trades }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">W / L / BE / EXP</div>
+                <div class="stat-value" style="font-size: 16px;"><span class="up">{{ metrics.wins }}W</span> <span style="color: var(--text-faint);">/</span> <span class="down">{{ metrics.losses }}L</span> <span style="color: var(--text-faint);">/</span> <span class="accent">{{ metrics.breakevens }}BE</span> <span style="color: var(--text-faint);">/</span> <span style="color: var(--text-dim);">{{ metrics.expired }}EXP</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Win Rate</div>
+                <div class="stat-value accent">{{ metrics.win_rate }}</div>
+            </div>
+        </div>
+
+        <div class="chart-panel" style="margin-bottom: 24px;">
+            <h2>Account Equity Curve</h2>
+            <canvas id="equityChart" height="90"></canvas>
+        </div>
+
+        <div class="page-head"><h1>Open Trades</h1></div>
+        {% if open_trades %}
+        <table style="margin-bottom: 24px;">
+            <thead><tr><th>Asset</th><th>Side</th><th>Entry Time</th><th>Entry Price</th><th>Score</th></tr></thead>
+            <tbody>
+                {% for t in open_trades %}
+                <tr><td>{{ t.symbol }}</td><td>{{ t.type }}</td><td>{{ t.entry_time }}</td><td>{{ t.entry }}</td><td>{{ t.score }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="panel empty-state" style="margin-bottom: 24px;">No trades currently open.</div>
+        {% endif %}
+
+        <div class="page-head"><h1>Pending Setups &mdash; Awaiting Retest</h1></div>
+        {% if pending_setups %}
+        <table>
+            <thead><tr><th>Asset</th><th>Side</th><th>Signal Formed</th><th>Score</th></tr></thead>
+            <tbody>
+                {% for p in pending_setups %}
+                <tr><td>{{ p.symbol }}</td><td>{{ p.type }}</td><td>{{ p.signal_time }}</td><td>{{ p.score }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="panel empty-state">No setups currently waiting for a retest.</div>
+        {% endif %}
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const equityData = {{ equity | tojson }};
+        const labels = equityData.map(item => item.time);
+        const dataPoints = equityData.map(item => item.balance);
+        const styles = getComputedStyle(document.documentElement);
+        const amber = styles.getPropertyValue('--amber-bright').trim();
+        const border = styles.getPropertyValue('--border-soft').trim();
+        const dim = styles.getPropertyValue('--text-faint').trim();
+
+        new Chart(document.getElementById('equityChart').getContext('2d'), {
+            type: 'line',
+            data: { labels, datasets: [{ data: dataPoints, borderColor: amber, backgroundColor: 'rgba(207,159,77,0.06)', borderWidth: 1.5, fill: true, tension: 0.15, pointRadius: 0 }] },
+            options: { responsive: true, plugins: { legend: { display: false } },
+                scales: { x: { ticks: { color: dim, font: { size: 10, family: 'IBM Plex Mono' } }, grid: { color: border } },
+                          y: { ticks: { color: dim, font: { size: 10, family: 'IBM Plex Mono' } }, grid: { color: border } } } }
+        });
+    </script>
+</body>
+                                                                                             </html>
