@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kabaka Snipers &middot; Forward Test History</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <header class="masthead">
+        <div class="brand">
+            <div class="brand-mark">KS</div>
+            <div>
+                <div class="brand-name">KABAKA SNIPERS</div>
+                <div class="brand-sub">Forward Test &middot; Live, Real-Time</div>
+            </div>
+        </div>
+        <nav class="masthead-nav">
+            <a href="index.html">Overview</a>
+            <a href="history.html" class="active">History</a>
+        </nav>
+    </header>
+
+    <div class="ticker">
+        <span class="ticker-dot"></span>
+        <span class="ticker-text">FORWARD TEST &mdash; NO REAL ORDERS &mdash; {{ trade_mode|upper }}-MODE &middot; BE {{ 'ON' if breakeven_enabled else 'OFF' }} &middot; LAST SCAN {{ last_run }}</span>
+    </div>
+
+    <main class="shell">
+        <div class="page-head">
+            <h1>Closed Trade History</h1>
+            <span class="page-head-note mono">{{ logs|length }} closed trade{{ '' if logs|length == 1 else 's' }}</span>
+        </div>
+
+        {% if logs %}
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th><th>Asset</th><th>Side</th><th>Signal</th><th>Entry (Filled)</th>
+                    <th>Exit</th><th>Trigger Price</th><th>Score</th><th>Outcome</th><th>R</th><th>Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>#{{ log.id }}</td>
+                    <td>{{ log.symbol }}</td>
+                    <td>{{ log.type }}</td>
+                    <td>{{ log.signal_time }}</td>
+                    <td>{{ log.entry_time }}</td>
+                    <td>{{ log.exit_time }}</td>
+                    <td>{{ log.entry }}</td>
+                    <td>{{ log.score }}</td>
+                    <td><span class="badge {{ log.outcome | lower }}">{{ log.outcome }}</span></td>
+                    <td>{{ log.r_multiple }}</td>
+                    <td>{{ log.balance }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="panel empty-state">No trades have closed yet since forward-testing began.</div>
+        {% endif %}
+    </main>
+</body>
+</html>
