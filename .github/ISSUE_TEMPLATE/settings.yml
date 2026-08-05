@@ -1,1 +1,58 @@
+name: "🔧 Bot Settings"
+description: Change balance, trade mode, pairs, or run duration for Kabaka Snipers forward-testing
+title: "[Settings]"
+labels: ["settings"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fill this in and hit **Submit new issue** — the bot picks up your changes
+        automatically within 30 minutes. You don't need to touch any code.
 
+  - type: input
+    id: balance
+    attributes:
+      label: Starting Balance (USD)
+      description: The account size the bot risks a % of on every trade.
+      placeholder: "62"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: trade_mode
+    attributes:
+      label: Trade Mode
+      description: How many trades can be open across the whole account at once.
+      options:
+        - "single (1-way — only 1 trade at a time)"
+        - "multi (3-way — up to 3 trades at once)"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: pairs
+    attributes:
+      label: Pairs to Scan
+      description: Pick at least one.
+      options:
+        - label: ETH/USDT
+        - label: SOL/USDT
+
+  - type: dropdown
+    id: run_days
+    attributes:
+      label: Run Duration
+      description: >-
+        Once this starts counting down, it CANNOT be shortened or stopped early
+        — pick "No limit" if you're not sure yet.
+      options:
+        - "No limit"
+        - "1"
+        - "5"
+        - "10"
+        - "15"
+        - "20"
+        - "25"
+        - "30"
+    validations:
+      required: true
