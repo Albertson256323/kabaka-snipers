@@ -1,6 +1,9 @@
 {
-  "starting_balance": 62.0,
-  "trade_mode": "single",
-  "pairs": ["ETH/USDT", "SOL/USDT"],
+  "starting_balance": 30.0,
+  "trade_mode": "multi",
+  "pairs": [
+    "ETH/USDT",
+    "SOL/USDT"
+  ],
   "run_days": null
 }
