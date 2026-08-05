@@ -25,7 +25,7 @@
 
     <div class="ticker">
         <span class="ticker-dot"></span>
-        <span class="ticker-text">FORWARD TEST &mdash; NO REAL ORDERS &mdash; MULTI-MODE &middot; BE OFF &middot; LAST SCAN 2026-08-05 03:00 UTC</span>
+        <span class="ticker-text">FORWARD TEST &mdash; NO REAL ORDERS &mdash; SINGLE-MODE &middot; LAST SCAN 2026-08-05 03:30 UTC</span>
     </div>
 
     <main class="shell">
@@ -36,10 +36,16 @@
 
         
 
+        <div style="margin-bottom: 24px;">
+            <a href="history.html" class="btn" style="text-decoration: none; display: inline-block;">View Full Trade History &rarr;</a>
+        </div>
+
+        
+
         <div class="stat-grid">
             <div class="stat">
                 <div class="stat-label">Initial Capital</div>
-                <div class="stat-value">$30.00</div>
+                <div class="stat-value">$62.00</div>
             </div>
             <div class="stat">
                 <div class="stat-label">Current Balance</div>
@@ -47,15 +53,15 @@
             </div>
             <div class="stat">
                 <div class="stat-label">Net Growth</div>
-                <div class="stat-value up">$+0.00</div>
+                <div class="stat-value down">$-32.00</div>
             </div>
             <div class="stat">
                 <div class="stat-label">Closed Trades</div>
                 <div class="stat-value">0</div>
             </div>
             <div class="stat">
-                <div class="stat-label">W / L / BE / EXP</div>
-                <div class="stat-value" style="font-size: 16px;"><span class="up">0W</span> <span style="color: var(--text-faint);">/</span> <span class="down">0L</span> <span style="color: var(--text-faint);">/</span> <span class="accent">0BE</span> <span style="color: var(--text-faint);">/</span> <span style="color: var(--text-dim);">0EXP</span></div>
+                <div class="stat-label">W / L / EXP</div>
+                <div class="stat-value" style="font-size: 16px;"><span class="up">0W</span> <span style="color: var(--text-faint);">/</span> <span class="down">0L</span> <span style="color: var(--text-faint);">/</span> <span style="color: var(--text-dim);">0EXP</span></div>
             </div>
             <div class="stat">
                 <div class="stat-label">Win Rate</div>
@@ -77,11 +83,16 @@
         
         <div class="panel empty-state">No setups currently waiting for a retest.</div>
         
+
+        <div class="page-head"><h1>Missed &mdash; Signal Fired, Account Was Full</h1></div>
+        
+        <div class="panel empty-state">No setups have been missed due to a full account.</div>
+        
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const equityData = [{"balance": 30.0, "time": "Start"}];
+        const equityData = [{"balance": 62.0, "time": "Start"}];
         const labels = equityData.map(item => item.time);
         const dataPoints = equityData.map(item => item.balance);
         const styles = getComputedStyle(document.documentElement);
@@ -98,4 +109,4 @@
         });
     </script>
 </body>
-                                                                                             </html>
+</html>
