@@ -7,9 +7,9 @@
 #   2. Detects any CHoCH forming AFTER the forward-test start time
 #   3. Waits for a retest fill (same as the backtest engine) before counting
 #      anything as a real trade
-#   4. Resolves trades that have hit stop/target/breakeven — but anything
-#      that simply hasn't had enough real time pass yet is reported as
-#      still OPEN/PENDING, never force-resolved early
+#   4. Resolves trades that have hit stop/target — but anything that simply
+#      hasn't had enough real time pass yet is reported as still
+#      OPEN/PENDING, never force-resolved early
 #   5. Regenerates a static dashboard (index.html + history.html) and saves
 #      state.json so the next run picks up exactly where this one left off
 #
@@ -24,18 +24,18 @@ from datetime import datetime, timezone
 from jinja2 import Template
 
 # ---------- Configuration ----------
-# Balance and trade mode live in config.json (edit that file directly on
-# GitHub — no code changes needed). These are only the fallback defaults
-# used if config.json is missing.
+# Balance, trade mode, pairs, and run duration all live in config.json —
+# normally updated automatically by the Settings issue form (see
+# .github/ISSUE_TEMPLATE/settings.yml), or you can edit config.json by hand.
+# These are only the fallback defaults used if config.json is missing.
 DEFAULT_STARTING_BALANCE = 62.0
 DEFAULT_TRADE_MODE = "single"   # "single" = 1 concurrent trade, "multi" = up to 3
+DEFAULT_PAIRS = ["ETH/USDT", "SOL/USDT"]
+ALL_PAIRS = ["ETH/USDT", "SOL/USDT"]
 
-PAIRS = ["ETH/USDT", "SOL/USDT"]
 LOOKBACK_DAYS = 60             # candles fetched each run — plenty for the 6-candle structure window
 LIMIT_FILL_WINDOW = 6          # candles to wait for a retest (24h on 4H)
 EXIT_WINDOW = 10                # candles to wait for stop/target before calling it expired
-BREAKEVEN_ENABLED = False       # not exposed as a control — always off
-BREAKEVEN_TRIGGER_R = 1.3       # only matters if BREAKEVEN_ENABLED is ever flipped on
 
 TRADE_MODE_LIMITS = {"single": 1, "multi": 3}
 
@@ -46,11 +46,15 @@ DOCS_DIR = "docs"
 
 def load_config():
     """
-    Reads config.json, which is yours to edit directly on GitHub — change
-    the balance or trade mode any time, no code editing needed. Takes
-    effect on the next scan run (minimum 30 min, since that's the schedule).
+    Reads config.json — normally written by the Settings issue form, or
+    editable by hand. Takes effect on the next scan run (minimum 30 min).
     """
-    defaults = {"starting_balance": DEFAULT_STARTING_BALANCE, "trade_mode": DEFAULT_TRADE_MODE}
+    defaults = {
+        "starting_balance": DEFAULT_STARTING_BALANCE,
+        "trade_mode": DEFAULT_TRADE_MODE,
+        "pairs": DEFAULT_PAIRS,
+        "run_days": None
+    }
     if not os.path.exists(CONFIG_PATH):
         return defaults
     try:
@@ -63,7 +67,19 @@ def load_config():
     trade_mode = cfg.get("trade_mode", DEFAULT_TRADE_MODE)
     if trade_mode not in TRADE_MODE_LIMITS:
         trade_mode = DEFAULT_TRADE_MODE
-    return {"starting_balance": starting_balance, "trade_mode": trade_mode}
+
+    pairs = cfg.get("pairs", DEFAULT_PAIRS)
+    pairs = [p for p in pairs if p in ALL_PAIRS]
+    if not pairs:
+        pairs = DEFAULT_PAIRS
+
+    run_days = cfg.get("run_days", None)
+    try:
+        run_days = int(run_days) if run_days not in (None, "", "None") else None
+    except (ValueError, TypeError):
+        run_days = None
+
+    return {"starting_balance": starting_balance, "trade_mode": trade_mode, "pairs": pairs, "run_days": run_days}
 
 
 def load_state():
@@ -72,6 +88,7 @@ def load_state():
             return json.load(f)
     return {
         "forward_test_start_ts": None,   # set on first run
+        "run_until_ts": None,            # set once, first time run_days is configured — never shortened
         "starting_balance": DEFAULT_STARTING_BALANCE,
         "balance": DEFAULT_STARTING_BALANCE,
         "closed_trades": [],
@@ -113,40 +130,24 @@ def find_limit_fill_live(df, signal_index, limit_price, is_bullish, max_wait):
     return 'expired', None
 
 
-def simulate_exit_live(df, i, is_bullish, entry_price, sl_price, tp_price, risk_pips, breakeven_enabled):
+def simulate_exit_live(df, i, is_bullish, entry_price, sl_price, tp_price, risk_pips):
     """
     Same exit logic as the backtest engine, but if fewer than EXIT_WINDOW
     future candles actually exist yet, the trade is reported OPEN instead
-    of being force-resolved.
+    of being force-resolved. No breakeven — plain stop-loss / target only.
     Returns dict: {status: 'open'|'closed', outcome, exit_index, r_multiple}
     """
     future_window = df.iloc[i + 1: i + 1 + EXIT_WINDOW]
 
-    breakeven_trigger = None
-    if breakeven_enabled:
-        breakeven_trigger = entry_price + (risk_pips * BREAKEVEN_TRIGGER_R) if is_bullish \
-            else entry_price - (risk_pips * BREAKEVEN_TRIGGER_R)
-
-    effective_sl = sl_price
-    armed = False
-
     for idx, fut in future_window.iterrows():
         if is_bullish:
-            if breakeven_enabled and not armed and fut['high'] >= breakeven_trigger:
-                armed = True
-                effective_sl = entry_price
-            if fut['low'] <= effective_sl:
-                return {'status': 'closed', 'outcome': 'BE' if armed else 'LOSS',
-                        'exit_index': idx, 'r_multiple': 0.0 if armed else -1.0}
+            if fut['low'] <= sl_price:
+                return {'status': 'closed', 'outcome': 'LOSS', 'exit_index': idx, 'r_multiple': -1.0}
             elif fut['high'] >= tp_price:
                 return {'status': 'closed', 'outcome': 'WIN', 'exit_index': idx, 'r_multiple': 4.0}
         else:
-            if breakeven_enabled and not armed and fut['low'] <= breakeven_trigger:
-                armed = True
-                effective_sl = entry_price
-            if fut['high'] >= effective_sl:
-                return {'status': 'closed', 'outcome': 'BE' if armed else 'LOSS',
-                        'exit_index': idx, 'r_multiple': 0.0 if armed else -1.0}
+            if fut['high'] >= sl_price:
+                return {'status': 'closed', 'outcome': 'LOSS', 'exit_index': idx, 'r_multiple': -1.0}
             elif fut['low'] <= tp_price:
                 return {'status': 'closed', 'outcome': 'WIN', 'exit_index': idx, 'r_multiple': 4.0}
 
@@ -158,8 +159,6 @@ def simulate_exit_live(df, i, is_bullish, entry_price, sl_price, tp_price, risk_
     final_close = final_row['close']
     price_diff = (final_close - entry_price) if is_bullish else (entry_price - final_close)
     raw_r = (price_diff / risk_pips) if risk_pips else 0.0
-    if armed and raw_r <= 0:
-        return {'status': 'closed', 'outcome': 'BE', 'exit_index': future_window.index[-1], 'r_multiple': 0.0}
     return {'status': 'closed', 'outcome': 'EXP', 'exit_index': future_window.index[-1],
             'r_multiple': max(-1.0, min(raw_r, 4.0))}
 
@@ -186,13 +185,22 @@ def run_forward_scan():
     # your balance is whatever config.json says — editable any time, no code changes
     state["starting_balance"] = config["starting_balance"]
 
+    # run-duration lock: set ONCE the first time run_days is configured, and
+    # never shortened after that — matches "once it's running I can't stop
+    # it early." Leaving run_days unset keeps it running indefinitely.
+    if state.get("run_until_ts") is None and config["run_days"] is not None:
+        state["run_until_ts"] = state["forward_test_start_ts"] + (config["run_days"] * 24 * 60 * 60 * 1000)
+
+    run_locked_and_expired = state.get("run_until_ts") is not None and now_ms >= state["run_until_ts"]
+
     exchange = ccxt.okx({'enableRateLimit': True})
     all_candidates = []       # pending setups (still awaiting retest) — always reported, no slot needed
     raw_filled = []           # every setup that got a retest fill, BEFORE concurrency selection
+    missed_setups = []        # filled setups passed over because all concurrency slots were full
     symbol_frames = {}
     fetch_errors = []
 
-    for symbol in PAIRS:
+    for symbol in config["pairs"]:
         try:
             df = fetch_recent(exchange, symbol, LOOKBACK_DAYS)
             if len(df) < 15:
@@ -204,61 +212,63 @@ def run_forward_scan():
 
     # --- re-derive every setup from the anchor point forward, each run ---
     # (cheap, self-correcting, and avoids ever having to hand-merge partial state)
-    for symbol, df in symbol_frames.items():
-        for i in range(6, len(df)):
-            c_candle = df.iloc[i]
-            if c_candle['timestamp'] < state["forward_test_start_ts"]:
-                continue  # this setup formed before we started forward-testing — doesn't count
+    # Once the locked run window has ended, no NEW setups are considered at
+    # all — but trades already open still get resolved below.
+    if not run_locked_and_expired:
+        for symbol, df in symbol_frames.items():
+            for i in range(6, len(df)):
+                c_candle = df.iloc[i]
+                if c_candle['timestamp'] < state["forward_test_start_ts"]:
+                    continue  # this setup formed before we started forward-testing — doesn't count
 
-            window = df.iloc[i - 6:i]
-            structural_high = window['high'].max()
-            structural_low = window['low'].min()
+                window = df.iloc[i - 6:i]
+                structural_high = window['high'].max()
+                structural_low = window['low'].min()
 
-            bearish_choch = (c_candle['close'] < structural_low) and (df.iloc[i - 1]['close'] >= structural_low)
-            bullish_choch = (c_candle['close'] > structural_high) and (df.iloc[i - 1]['close'] <= structural_high)
-            if not bearish_choch and not bullish_choch:
-                continue
+                bearish_choch = (c_candle['close'] < structural_low) and (df.iloc[i - 1]['close'] >= structural_low)
+                bullish_choch = (c_candle['close'] > structural_high) and (df.iloc[i - 1]['close'] <= structural_high)
+                if not bearish_choch and not bullish_choch:
+                    continue
 
-            is_bullish = bullish_choch
-            sl_price = c_candle['high'] if not is_bullish else c_candle['low']
-            broken_level = structural_high if is_bullish else structural_low
-            detect_risk = abs(c_candle['close'] - sl_price)
-            if c_candle['close'] == 0 or detect_risk == 0:
-                continue
+                is_bullish = bullish_choch
+                sl_price = c_candle['high'] if not is_bullish else c_candle['low']
+                broken_level = structural_high if is_bullish else structural_low
+                detect_risk = abs(c_candle['close'] - sl_price)
+                if c_candle['close'] == 0 or detect_risk == 0:
+                    continue
 
-            displacement_ratio = abs(c_candle['close'] - broken_level) / detect_risk
-            avg_vol = window['volume'].mean()
-            volume_ratio = (c_candle['volume'] / avg_vol) if avg_vol > 0 else 1.0
-            detect_volatility_ratio = (detect_risk / c_candle['close']) * 100
-            score = score_setup(displacement_ratio, volume_ratio, detect_volatility_ratio)
+                displacement_ratio = abs(c_candle['close'] - broken_level) / detect_risk
+                avg_vol = window['volume'].mean()
+                volume_ratio = (c_candle['volume'] / avg_vol) if avg_vol > 0 else 1.0
+                detect_volatility_ratio = (detect_risk / c_candle['close']) * 100
+                score = score_setup(displacement_ratio, volume_ratio, detect_volatility_ratio)
 
-            fill_status, fill_idx = find_limit_fill_live(df, i, broken_level, is_bullish, LIMIT_FILL_WINDOW)
-            if fill_status == 'expired':
-                continue  # never retested — this setup is dead, doesn't count
-            if fill_status == 'pending':
-                all_candidates.append({
-                    'status': 'pending', 'symbol': symbol, 'signal_time': c_candle['timestamp'],
-                    'is_bullish': is_bullish, 'score': score
+                fill_status, fill_idx = find_limit_fill_live(df, i, broken_level, is_bullish, LIMIT_FILL_WINDOW)
+                if fill_status == 'expired':
+                    continue  # never retested — this setup is dead, doesn't count
+                if fill_status == 'pending':
+                    all_candidates.append({
+                        'status': 'pending', 'symbol': symbol, 'signal_time': c_candle['timestamp'],
+                        'is_bullish': is_bullish, 'score': score
+                    })
+                    continue
+
+                # filled — but NOT yet decided whether it's actually taken (concurrency limit applies below)
+                entry_price = broken_level
+                risk_pips = abs(entry_price - sl_price)
+                if risk_pips == 0:
+                    continue
+                tp_price = entry_price - (risk_pips * 4.0) if not is_bullish else entry_price + (risk_pips * 4.0)
+                volatility_ratio = (risk_pips / entry_price) * 100
+
+                exit_result = simulate_exit_live(df, fill_idx, is_bullish, entry_price, sl_price, tp_price, risk_pips)
+
+                raw_filled.append({
+                    'symbol': symbol, 'is_bullish': is_bullish, 'score': score,
+                    'signal_time': c_candle['timestamp'], 'entry_time': df.iloc[fill_idx]['timestamp'],
+                    'entry_price': entry_price, 'volatility_ratio': volatility_ratio,
+                    'exit_result': exit_result
                 })
-                continue
-
-            # filled — but NOT yet decided whether it's actually taken (concurrency limit applies below)
-            entry_price = broken_level
-            risk_pips = abs(entry_price - sl_price)
-            if risk_pips == 0:
-                continue
-            tp_price = entry_price - (risk_pips * 4.0) if not is_bullish else entry_price + (risk_pips * 4.0)
-            volatility_ratio = (risk_pips / entry_price) * 100
-
-            exit_result = simulate_exit_live(df, fill_idx, is_bullish, entry_price, sl_price, tp_price,
-                                              risk_pips, BREAKEVEN_ENABLED)
-
-            raw_filled.append({
-                'symbol': symbol, 'is_bullish': is_bullish, 'score': score,
-                'signal_time': c_candle['timestamp'], 'entry_time': df.iloc[fill_idx]['timestamp'],
-                'entry_price': entry_price, 'volatility_ratio': volatility_ratio,
-                'exit_result': exit_result
-            })
 
     # --- apply the concurrency limit: walk every filled setup in true time
     #     order, only accepting one when a slot is actually free. This is
@@ -278,10 +288,12 @@ def run_forward_scan():
         open_exits = [e for e in open_exits if e > ts]
         available_slots = MAX_CONCURRENT - len(open_exits)
         if available_slots <= 0:
-            continue  # account fully occupied — every setup at this moment is passed over
+            missed_setups.extend(group)  # account fully occupied — every setup at this moment is passed over
+            continue
 
         ranked = sorted(group, key=lambda c: c['score'], reverse=True)
         chosen = ranked[:available_slots]
+        missed_setups.extend(ranked[available_slots:])  # scored lower than the slots available at this moment
 
         for t in chosen:
             exit_result = t['exit_result']
@@ -336,16 +348,15 @@ def run_forward_scan():
     pending_setups = [c for c in all_candidates if c.get('status') == 'pending']
 
     save_state(state)
-    render_dashboard(state, pending_setups, all_open_trades, fetch_errors)
+    render_dashboard(state, pending_setups, all_open_trades, missed_setups, fetch_errors, run_locked_and_expired)
 
 
-def render_dashboard(state, pending_setups, open_trades, fetch_errors):
+def render_dashboard(state, pending_setups, open_trades, missed_setups, fetch_errors, run_ended):
     os.makedirs(DOCS_DIR, exist_ok=True)
 
     closed = state['closed_trades']
     wins = sum(1 for t in closed if t['outcome'] == 'WIN')
     losses = sum(1 for t in closed if t['outcome'] == 'LOSS')
-    breakevens = sum(1 for t in closed if t['outcome'] == 'BE')
     expired = sum(1 for t in closed if t['outcome'] == 'EXP')
     decisive = wins + losses
     win_rate = (wins / decisive * 100) if decisive > 0 else 0.0
@@ -359,7 +370,7 @@ def render_dashboard(state, pending_setups, open_trades, fetch_errors):
         'final': f"${state['balance']:.2f}",
         'net': f"${net_pl:+,.2f}",
         'trades': len(closed),
-        'wins': wins, 'losses': losses, 'breakevens': breakevens, 'expired': expired,
+        'wins': wins, 'losses': losses, 'expired': expired,
         'win_rate': f"{win_rate:.1f}%"
     }
 
@@ -386,16 +397,23 @@ def render_dashboard(state, pending_setups, open_trades, fetch_errors):
         'signal_time': fmt_ts(t['signal_time']), 'score': f"{t['score']}%"
     } for t in pending_setups]
 
+    display_missed = [{
+        'symbol': t['symbol'], 'type': 'BUY' if t['is_bullish'] else 'SELL',
+        'entry_time': fmt_ts(t['entry_time']), 'score': f"{t['score']}%"
+    } for t in missed_setups]
+
     with open('templates/index_template.html') as f:
         index_tpl = Template(f.read())
     with open('templates/history_template.html') as f:
         history_tpl = Template(f.read())
 
     mode_label = "multi" if MAX_CONCURRENT == TRADE_MODE_LIMITS["multi"] else "single"
+    run_until_str = fmt_ts(state['run_until_ts']) if state.get('run_until_ts') else None
     common = {
         'metrics': metrics, 'last_run': state['last_run'],
-        'open_trades': display_open, 'pending_setups': display_pending,
-        'fetch_errors': fetch_errors, 'trade_mode': mode_label, 'breakeven_enabled': BREAKEVEN_ENABLED
+        'open_trades': display_open, 'pending_setups': display_pending, 'missed_setups': display_missed,
+        'fetch_errors': fetch_errors, 'trade_mode': mode_label,
+        'run_until': run_until_str, 'run_ended': run_ended
     }
 
     with open(os.path.join(DOCS_DIR, 'index.html'), 'w') as f:
