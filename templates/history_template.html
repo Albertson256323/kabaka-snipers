@@ -25,13 +25,17 @@
 
     <div class="ticker">
         <span class="ticker-dot"></span>
-        <span class="ticker-text">FORWARD TEST &mdash; NO REAL ORDERS &mdash; {{ trade_mode|upper }}-MODE &middot; BE {{ 'ON' if breakeven_enabled else 'OFF' }} &middot; LAST SCAN {{ last_run }}</span>
+        <span class="ticker-text">FORWARD TEST &mdash; NO REAL ORDERS &mdash; {{ trade_mode|upper }}-MODE{% if run_until %} &middot; RUNS UNTIL {{ run_until }} (LOCKED){% endif %} &middot; LAST SCAN {{ last_run }}</span>
     </div>
 
     <main class="shell">
         <div class="page-head">
             <h1>Closed Trade History</h1>
             <span class="page-head-note mono">{{ logs|length }} closed trade{{ '' if logs|length == 1 else 's' }}</span>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+            <a href="index.html" class="btn" style="text-decoration: none; display: inline-block;">&larr; Back to Overview</a>
         </div>
 
         {% if logs %}
