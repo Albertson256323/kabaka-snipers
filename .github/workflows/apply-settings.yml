@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   apply:
-    if: contains(github.event.issue.labels.*.name, 'settings')
+    if: startsWith(github.event.issue.title, '[Settings]')
     runs-on: ubuntu-latest
     steps:
       - name: Check out repo
