@@ -25,13 +25,23 @@
 
     <div class="ticker">
         <span class="ticker-dot"></span>
-        <span class="ticker-text">FORWARD TEST &mdash; NO REAL ORDERS &mdash; {{ trade_mode|upper }}-MODE &middot; BE {{ 'ON' if breakeven_enabled else 'OFF' }} &middot; LAST SCAN {{ last_run }}</span>
+        <span class="ticker-text">FORWARD TEST &mdash; NO REAL ORDERS &mdash; {{ trade_mode|upper }}-MODE{% if run_until %} &middot; RUNS UNTIL {{ run_until }} (LOCKED){% endif %} &middot; LAST SCAN {{ last_run }}</span>
     </div>
 
     <main class="shell">
         <div class="page-head">
             <h1>Forward Test Overview</h1>
             <span class="page-head-note mono">Only counts signals formed since forward-testing began</span>
+        </div>
+
+        {% if run_ended %}
+        <div class="alert ok" style="margin-bottom: 20px;">
+            Run window complete as of {{ run_until }} &mdash; no new signals are being accepted. Figures below are final.
+        </div>
+        {% endif %}
+
+        <div style="margin-bottom: 24px;">
+            <a href="history.html" class="btn" style="text-decoration: none; display: inline-block;">View Full Trade History &rarr;</a>
         </div>
 
         {% if fetch_errors %}
@@ -58,8 +68,8 @@
                 <div class="stat-value">{{ metrics.trades }}</div>
             </div>
             <div class="stat">
-                <div class="stat-label">W / L / BE / EXP</div>
-                <div class="stat-value" style="font-size: 16px;"><span class="up">{{ metrics.wins }}W</span> <span style="color: var(--text-faint);">/</span> <span class="down">{{ metrics.losses }}L</span> <span style="color: var(--text-faint);">/</span> <span class="accent">{{ metrics.breakevens }}BE</span> <span style="color: var(--text-faint);">/</span> <span style="color: var(--text-dim);">{{ metrics.expired }}EXP</span></div>
+                <div class="stat-label">W / L / EXP</div>
+                <div class="stat-value" style="font-size: 16px;"><span class="up">{{ metrics.wins }}W</span> <span style="color: var(--text-faint);">/</span> <span class="down">{{ metrics.losses }}L</span> <span style="color: var(--text-faint);">/</span> <span style="color: var(--text-dim);">{{ metrics.expired }}EXP</span></div>
             </div>
             <div class="stat">
                 <div class="stat-label">Win Rate</div>
@@ -99,6 +109,20 @@
         {% else %}
         <div class="panel empty-state">No setups currently waiting for a retest.</div>
         {% endif %}
+
+        <div class="page-head"><h1>Missed &mdash; Signal Fired, Account Was Full</h1></div>
+        {% if missed_setups %}
+        <table>
+            <thead><tr><th>Asset</th><th>Side</th><th>Fill Time</th><th>Score</th></tr></thead>
+            <tbody>
+                {% for m in missed_setups %}
+                <tr><td>{{ m.symbol }}</td><td>{{ m.type }}</td><td>{{ m.entry_time }}</td><td>{{ m.score }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="panel empty-state">No setups have been missed due to a full account.</div>
+        {% endif %}
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -120,4 +144,4 @@
         });
     </script>
 </body>
-                                                                                             </html>
+</html>
