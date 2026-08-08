@@ -7,9 +7,9 @@
 #   2. Detects any CHoCH forming AFTER the forward-test start time
 #   3. Waits for a retest fill (same as the backtest engine) before counting
 #      anything as a real trade
-#   4. Resolves trades that have hit stop/target — but anything that simply
-#      hasn't had enough real time pass yet is reported as still
-#      OPEN/PENDING, never force-resolved early
+#   4. Resolves trades that have hit stop/target/breakeven — but anything
+#      that simply hasn't had enough real time pass yet is reported as
+#      still OPEN/PENDING, never force-resolved early
 #   5. Regenerates a static dashboard (index.html + history.html) and saves
 #      state.json so the next run picks up exactly where this one left off
 #
@@ -163,6 +163,72 @@ def simulate_exit_live(df, i, is_bullish, entry_price, sl_price, tp_price, risk_
             'r_multiple': max(-1.0, min(raw_r, 4.0))}
 
 
+def compute_signal_radar(pending_setups, open_trades, missed_setups, closed_trades, symbol_frames, min_count=10):
+    """
+    Builds the 'everything happening in the market right now' feed — not
+    just trades our account took. Every setup that formed shows up here:
+    still waiting for a retest (PENDING), triggered and running (RUNNING,
+    with live % progress toward TP or SL), triggered but the account had no
+    free slot (MISSED), or recently CLOSED. Always returns at least
+    min_count entries by padding with the most recent closed trades if
+    there simply isn't enough current activity — this feed should never
+    look empty/dormant.
+    """
+    entries = []
+
+    for p in pending_setups:
+        entries.append({
+            'symbol': p['symbol'], 'type': 'BUY' if p['is_bullish'] else 'SELL',
+            'status': 'PENDING', 'score': p['score'], 'sort_ts': p['signal_time'],
+            'detail': 'Setup formed, awaiting retest to trigger entry'
+        })
+
+    for o in open_trades:
+        current_price = symbol_frames[o['symbol']]['close'].iloc[-1] if o['symbol'] in symbol_frames else o['entry_price']
+        entry, sl, tp, is_bullish = o['entry_price'], o['sl_price'], o['tp_price'], o['is_bullish']
+
+        if is_bullish:
+            if current_price >= entry:
+                pct = min(100, max(0, (current_price - entry) / (tp - entry) * 100)) if tp != entry else 0
+                detail = f"{pct:.0f}% of the way to Take Profit"
+            else:
+                pct = min(100, max(0, (entry - current_price) / (entry - sl) * 100)) if entry != sl else 0
+                detail = f"{pct:.0f}% of the way to Stop Loss"
+        else:
+            if current_price <= entry:
+                pct = min(100, max(0, (entry - current_price) / (entry - tp) * 100)) if entry != tp else 0
+                detail = f"{pct:.0f}% of the way to Take Profit"
+            else:
+                pct = min(100, max(0, (current_price - entry) / (sl - entry) * 100)) if sl != entry else 0
+                detail = f"{pct:.0f}% of the way to Stop Loss"
+
+        entries.append({
+            'symbol': o['symbol'], 'type': 'BUY' if is_bullish else 'SELL',
+            'status': 'RUNNING', 'score': o['score'], 'sort_ts': o['entry_time'], 'detail': detail
+        })
+
+    for msd in missed_setups:
+        entries.append({
+            'symbol': msd['symbol'], 'type': 'BUY' if msd['is_bullish'] else 'SELL',
+            'status': 'MISSED (account full)', 'score': msd['score'], 'sort_ts': msd['entry_time'],
+            'detail': 'Triggered in the market but no account slot was free'
+        })
+
+    entries.sort(key=lambda e: e['sort_ts'], reverse=True)
+
+    if len(entries) < min_count:
+        pad_needed = min_count - len(entries)
+        recent_closed = sorted(closed_trades, key=lambda t: t['exit_time'], reverse=True)[:pad_needed]
+        for c in recent_closed:
+            entries.append({
+                'symbol': c['symbol'], 'type': c['type'], 'status': f"CLOSED ({c['outcome']})",
+                'score': c['score'], 'sort_ts': c['exit_time'],
+                'detail': f"Finished at {c['r_multiple']:+.2f}R"
+            })
+
+    return entries
+
+
 def fetch_recent(exchange, symbol, days_back):
     since_time = exchange.milliseconds() - (days_back * 24 * 60 * 60 * 1000)
     raw = exchange.fetch_ohlcv(symbol, timeframe='4h', since=since_time, limit=1000)
@@ -266,8 +332,8 @@ def run_forward_scan():
                 raw_filled.append({
                     'symbol': symbol, 'is_bullish': is_bullish, 'score': score,
                     'signal_time': c_candle['timestamp'], 'entry_time': df.iloc[fill_idx]['timestamp'],
-                    'entry_price': entry_price, 'volatility_ratio': volatility_ratio,
-                    'exit_result': exit_result
+                    'entry_price': entry_price, 'sl_price': sl_price, 'tp_price': tp_price,
+                    'volatility_ratio': volatility_ratio, 'exit_result': exit_result
                 })
 
     # --- apply the concurrency limit: walk every filled setup in true time
