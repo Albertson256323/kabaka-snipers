@@ -1,0 +1,66 @@
+name: "🔧 Intraday Settings"
+description: Balance, launch switch, trade mode, pairs, and lock-in for the Intraday MSNR strategy
+title: "[Settings: Intraday]"
+labels: ["settings"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ The intraday engine is built and tested but not yet wired into the
+        live scanner — arming it here updates your settings, but it won't
+        take real trades until that wiring is finished.
+
+        Fill this in and hit **Submit new issue**.
+
+  - type: checkboxes
+    id: launch
+    attributes:
+      label: Launch Switch
+      description: Leave unchecked to disarm — no new trades will be taken.
+      options:
+        - label: Arm this strategy now
+
+  - type: input
+    id: balance
+    attributes:
+      label: Starting Balance (USD)
+      placeholder: "20"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: trade_mode
+    attributes:
+      label: Trade Mode
+      options:
+        - "single (1-way — only 1 trade at a time)"
+        - "multi (3-way — up to 3 trades at once)"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: pairs
+    attributes:
+      label: Pairs to Scan
+      options:
+        - label: ETH/USDT
+        - label: SOL/USDT
+
+  - type: dropdown
+    id: run_days
+    attributes:
+      label: Run Duration
+      description: >-
+        Once armed with a duration set, it CANNOT be shortened or stopped early.
+        Pick "No limit" if you're not sure yet.
+      options:
+        - "No limit"
+        - "1"
+        - "5"
+        - "10"
+        - "15"
+        - "20"
+        - "25"
+        - "20"
+    validations:
+      required: true
