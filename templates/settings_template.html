@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kabaka Snipers &middot; Settings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+{% set active_page = 'settings' %}
+{% include 'nav.html' %}
+
+    <main class="shell">
+        <div class="page-head">
+            <h1>Settings</h1>
+            <span class="page-head-note mono">Current config.json, read-only view</span>
+        </div>
+
+        <div class="panel" style="padding: 22px 26px; margin-bottom: 20px;">
+            <p style="font-size: 12.5px; color: var(--text-dim); line-height: 1.6; margin: 0;">
+                This is a static site &mdash; nothing here is clickable to change settings directly.
+                To change anything, go to your repo's <strong>Issues &rarr; New issue</strong> and pick
+                the settings form for the strategy you want to change. It'll comment back confirming
+                what was applied and trigger an immediate scan.
+            </p>
+        </div>
+
+        {% for name, cfg in config.items() %}
+        <div class="page-head"><h1>{{ name|capitalize }}</h1></div>
+        <table style="margin-bottom: 24px;">
+            <tbody>
+                <tr><td class="mono" style="color: var(--text-faint);">Launch Switch</td><td>{{ 'ARMED' if cfg.enabled else 'DISARMED' }}</td></tr>
+                <tr><td class="mono" style="color: var(--text-faint);">Starting Balance</td><td>${{ '%.2f'|format(cfg.starting_balance) }}</td></tr>
+                <tr><td class="mono" style="color: var(--text-faint);">Trade Mode</td><td>{{ cfg.trade_mode }}</td></tr>
+                <tr><td class="mono" style="color: var(--text-faint);">Pairs</td><td>{{ cfg.pairs|join(', ') }}</td></tr>
+                <tr><td class="mono" style="color: var(--text-faint);">Lock-In Days</td><td>{{ cfg.lock_days if cfg.lock_days else 'None set' }}</td></tr>
+            </tbody>
+        </table>
+        {% endfor %}
+    </main>
+</body>
+</html>
