@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kabaka Snipers &middot; Settings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+
+    <header class="masthead">
+        <div class="brand">
+            <div class="brand-mark">KS</div>
+            <div>
+                <div class="brand-name">KABAKA SNIPERS</div>
+                <div class="brand-sub">Forward Test &middot; Live, Real-Time</div>
+            </div>
+        </div>
+        <nav class="masthead-nav">
+            <a href="index.html" class="">Overview</a>
+            <a href="running.html" class="">Running</a>
+            <a href="history.html" class="">History</a>
+            <a href="swing.html" class="">Swing</a>
+            <a href="intraday.html" class="">Intraday</a>
+            <a href="scalp.html" class="">Scalp</a>
+            <a href="settings.html" class="active">Settings</a>
+        </nav>
+        <button class="menu-toggle" onclick="toggleDrawer()" aria-label="Open menu">&#9776;</button>
+    </header>
+
+    <div class="ticker">
+        <span class="ticker-dot"></span>
+        <span class="ticker-text">
+            SWING ARMED &middot;
+            INTRADAY DISARMED &middot;
+            LAST SCAN 2026-08-09 03:00 UTC
+        </span>
+    </div>
+
+    <div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer()"></div>
+    <div class="drawer" id="sideDrawer">
+        <a href="index.html">Overview</a>
+        <a href="running.html">Running</a>
+        <a href="history.html">History</a>
+        <a href="swing.html">Swing</a>
+        <a href="intraday.html">Intraday</a>
+        <a href="scalp.html">Scalp</a>
+        <a href="settings.html">Settings</a>
+    </div>
+    <script>
+        function toggleDrawer() {
+            const d = document.getElementById('sideDrawer');
+            const o = document.getElementById('drawerOverlay');
+            d.classList.toggle('open');
+            o.style.display = d.classList.contains('open') ? 'block' : 'none';
+        }
+    </script>
+
+    <main class="shell">
+        <div class="page-head">
+            <h1>Settings</h1>
+            <span class="page-head-note mono">Current config.json, read-only view</span>
+        </div>
+
+        <div class="panel" style="padding: 22px 26px; margin-bottom: 20px;">
+            <p style="font-size: 12.5px; color: var(--text-dim); line-height: 1.6; margin: 0;">
+                This is a static site &mdash; nothing here is clickable to change settings directly.
+                To change anything, go to your repo's <strong>Issues &rarr; New issue</strong> and pick
+                the settings form for the strategy you want to change. It'll comment back confirming
+                what was applied and trigger an immediate scan.
+            </p>
+        </div>
+
+        
+        <div class="page-head"><h1>Swing</h1></div>
+        <table style="margin-bottom: 24px;">
+            <tbody>
+                <tr><td class="mono" style="color: var(--text-faint);">Launch Switch</td><td>ARMED</td></tr>
+                <tr><td class="mono" style="color: var(--text-faint);">Starting Balance</td><td>$30.00</td></tr>
+                <tr><td class="mono" style="color: var(--text-faint);">Trade Mode</td><td>multi</td></tr>
+                <tr><td class="mono" style="color: var(--text-faint);">Pairs</td><td>ETH/USDT, SOL/USDT</td></tr>
+                <tr><td class="mono" style="color: var(--text-faint);">Lock-In Days</td><td>None set</td></tr>
+            </tbody>
+        </table>
+        
+        <div class="page-head"><h1>Intraday</h1></div>
+        <table style="margin-bottom: 24px;">
+            <tbody>
+                <tr><td class="mono" style="color: var(--text-faint);">Launch Switch</td><td>DISARMED</td></tr>
+                <tr><td class="mono" style="color: var(--text-faint);">Starting Balance</td><td>$20.00</td></tr>
+                <tr><td class="mono" style="color: var(--text-faint);">Trade Mode</td><td>single</td></tr>
+                <tr><td class="mono" style="color: var(--text-faint);">Pairs</td><td>ETH/USDT, SOL/USDT</td></tr>
+                <tr><td class="mono" style="color: var(--text-faint);">Lock-In Days</td><td>None set</td></tr>
+            </tbody>
+        </table>
+        
+    </main>
+</body>
+</html>

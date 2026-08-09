@@ -3,5 +3,21 @@
   "starting_balance": 30.0,
   "balance": 30.0,
   "closed_trades": [],
-  "last_run": "2026-08-09 02:30 UTC"
+  "last_run": "2026-08-09 02:30 UTC",
+  "swing": {
+    "forward_test_start_ts": 1786244430379,
+    "run_until_ts": null,
+    "starting_balance": 30.0,
+    "balance": 30.0,
+    "closed_trades": [],
+    "last_run": "2026-08-09 03:00 UTC"
+  },
+  "intraday": {
+    "forward_test_start_ts": null,
+    "run_until_ts": null,
+    "starting_balance": 20.0,
+    "balance": 20.0,
+    "closed_trades": [],
+    "last_run": null
+  }
 }

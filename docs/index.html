@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kabaka Snipers &middot; Forward Test</title>
+    <title>Kabaka Snipers &middot; Overview</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
+
     <header class="masthead">
         <div class="brand">
             <div class="brand-mark">KS</div>
@@ -19,32 +20,57 @@
         </div>
         <nav class="masthead-nav">
             <a href="index.html" class="active">Overview</a>
-            <a href="history.html">History</a>
+            <a href="running.html" class="">Running</a>
+            <a href="history.html" class="">History</a>
+            <a href="swing.html" class="">Swing</a>
+            <a href="intraday.html" class="">Intraday</a>
+            <a href="scalp.html" class="">Scalp</a>
+            <a href="settings.html" class="">Settings</a>
         </nav>
+        <button class="menu-toggle" onclick="toggleDrawer()" aria-label="Open menu">&#9776;</button>
     </header>
 
     <div class="ticker">
         <span class="ticker-dot"></span>
-        <span class="ticker-text">FORWARD TEST &mdash; NO REAL ORDERS &mdash; MULTI-MODE &middot; LAST SCAN 2026-08-09 02:30 UTC</span>
+        <span class="ticker-text">
+            SWING ARMED &middot;
+            INTRADAY DISARMED &middot;
+            LAST SCAN 2026-08-09 03:00 UTC
+        </span>
     </div>
+
+    <div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer()"></div>
+    <div class="drawer" id="sideDrawer">
+        <a href="index.html">Overview</a>
+        <a href="running.html">Running</a>
+        <a href="history.html">History</a>
+        <a href="swing.html">Swing</a>
+        <a href="intraday.html">Intraday</a>
+        <a href="scalp.html">Scalp</a>
+        <a href="settings.html">Settings</a>
+    </div>
+    <script>
+        function toggleDrawer() {
+            const d = document.getElementById('sideDrawer');
+            const o = document.getElementById('drawerOverlay');
+            d.classList.toggle('open');
+            o.style.display = d.classList.contains('open') ? 'block' : 'none';
+        }
+    </script>
 
     <main class="shell">
         <div class="page-head">
-            <h1>Forward Test Overview</h1>
-            <span class="page-head-note mono">Only counts signals formed since forward-testing began</span>
+            <h1>Overview</h1>
+            <span class="page-head-note mono">Swing engine shown below &middot; full detail on each strategy's own page</span>
         </div>
 
         
-
-        <div style="margin-bottom: 24px;">
-            <a href="history.html" class="btn" style="text-decoration: none; display: inline-block;">View Full Trade History &rarr;</a>
-        </div>
 
         
 
         <div class="stat-grid">
             <div class="stat">
-                <div class="stat-label">Initial Capital</div>
+                <div class="stat-label">Initial Capital (Swing)</div>
                 <div class="stat-value">$30.00</div>
             </div>
             <div class="stat">
@@ -74,20 +100,23 @@
             <canvas id="equityChart" height="90"></canvas>
         </div>
 
-        <div class="page-head"><h1>Open Trades</h1></div>
+        <div class="page-head">
+            <h1>Running Signals &mdash; Preview</h1>
+            <a href="running.html" class="btn" style="text-decoration:none; padding: 8px 16px; font-size: 11px;">See all &rarr;</a>
+        </div>
         
-        <div class="panel empty-state" style="margin-bottom: 24px;">No trades currently open.</div>
-        
-
-        <div class="page-head"><h1>Pending Setups &mdash; Awaiting Retest</h1></div>
-        
-        <div class="panel empty-state">No setups currently waiting for a retest.</div>
+        <div class="panel empty-state" style="margin-bottom: 24px;">Nothing to show yet.</div>
         
 
-        <div class="page-head"><h1>Missed &mdash; Signal Fired, Account Was Full</h1></div>
-        
-        <div class="panel empty-state">No setups have been missed due to a full account.</div>
-        
+        <div class="page-head"><h1>Jump To</h1></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+            <a href="running.html" class="btn" style="text-decoration:none; text-align:center;">Running Signals</a>
+            <a href="history.html" class="btn" style="text-decoration:none; text-align:center;">Trade History</a>
+            <a href="swing.html" class="btn" style="text-decoration:none; text-align:center;">Swing Strategy</a>
+            <a href="intraday.html" class="btn" style="text-decoration:none; text-align:center;">Intraday Strategy</a>
+            <a href="scalp.html" class="btn" style="text-decoration:none; text-align:center;">Scalp Strategy</a>
+            <a href="settings.html" class="btn" style="text-decoration:none; text-align:center;">Settings</a>
+        </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

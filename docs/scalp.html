@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kabaka Snipers &middot; History</title>
+    <title>Kabaka Snipers &middot; Scalp</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="static/style.css">
@@ -21,10 +21,10 @@
         <nav class="masthead-nav">
             <a href="index.html" class="">Overview</a>
             <a href="running.html" class="">Running</a>
-            <a href="history.html" class="active">History</a>
+            <a href="history.html" class="">History</a>
             <a href="swing.html" class="">Swing</a>
             <a href="intraday.html" class="">Intraday</a>
-            <a href="scalp.html" class="">Scalp</a>
+            <a href="scalp.html" class="active">Scalp</a>
             <a href="settings.html" class="">Settings</a>
         </nav>
         <button class="menu-toggle" onclick="toggleDrawer()" aria-label="Open menu">&#9776;</button>
@@ -60,12 +60,51 @@
 
     <main class="shell">
         <div class="page-head">
-            <h1>Closed Trade History &mdash; Swing</h1>
-            <span class="page-head-note mono">0 closed trades</span>
+            <h1>Scalp</h1>
+            <span class="page-head-note mono">DISARMED</span>
         </div>
 
         
-        <div class="panel empty-state">No trades have closed yet.</div>
+        <div class="alert err" style="margin-bottom: 20px;">
+            Waiting on the Scalp ruleset — send the rules the same way MSNR intraday was defined, and this gets built next.
+        </div>
+        
+
+        
+
+        <div class="stat-grid">
+            <div class="stat">
+                <div class="stat-label">Launch Switch</div>
+                <div class="stat-value down">DISARMED</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Capital</div>
+                <div class="stat-value">—</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Concurrency</div>
+                <div class="stat-value" style="font-size: 16px;">—</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Pairs</div>
+                <div class="stat-value" style="font-size: 16px;">—</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Lock-In</div>
+                <div class="stat-value" style="font-size: 16px;">None set</div>
+            </div>
+            
+        </div>
+
+        <div class="panel" style="padding: 22px 26px;">
+            <div class="stat-label" style="margin-bottom: 10px;">To change these settings</div>
+            <p style="font-size: 12.5px; color: var(--text-dim); line-height: 1.6; margin: 0;">
+                Go to your repo's <strong>Issues &rarr; New issue</strong> and pick the settings form for this
+                strategy. Submitting it arms/disarms the launch switch, sets capital, and locks in a run
+                duration &mdash; the lock cannot be shortened once it starts counting down.
+            </p>
+        </div>
+
         
     </main>
 </body>
