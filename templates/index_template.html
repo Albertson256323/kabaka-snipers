@@ -3,46 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kabaka Snipers &middot; Forward Test</title>
+    <title>Kabaka Snipers &middot; Overview</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
-    <header class="masthead">
-        <div class="brand">
-            <div class="brand-mark">KS</div>
-            <div>
-                <div class="brand-name">KABAKA SNIPERS</div>
-                <div class="brand-sub">Forward Test &middot; Live, Real-Time</div>
-            </div>
-        </div>
-        <nav class="masthead-nav">
-            <a href="index.html" class="active">Overview</a>
-            <a href="history.html">History</a>
-        </nav>
-    </header>
-
-    <div class="ticker">
-        <span class="ticker-dot"></span>
-        <span class="ticker-text">FORWARD TEST &mdash; NO REAL ORDERS &mdash; {{ trade_mode|upper }}-MODE{% if run_until %} &middot; RUNS UNTIL {{ run_until }} (LOCKED){% endif %} &middot; LAST SCAN {{ last_run }}</span>
-    </div>
+{% set active_page = 'overview' %}
+{% include 'nav.html' %}
 
     <main class="shell">
         <div class="page-head">
-            <h1>Forward Test Overview</h1>
-            <span class="page-head-note mono">Only counts signals formed since forward-testing began</span>
+            <h1>Overview</h1>
+            <span class="page-head-note mono">Swing engine shown below &middot; full detail on each strategy's own page</span>
         </div>
 
         {% if run_ended %}
         <div class="alert ok" style="margin-bottom: 20px;">
-            Run window complete as of {{ run_until }} &mdash; no new signals are being accepted. Figures below are final.
+            Swing run window complete as of {{ run_until }} &mdash; no new signals are being accepted.
         </div>
         {% endif %}
-
-        <div style="margin-bottom: 24px;">
-            <a href="history.html" class="btn" style="text-decoration: none; display: inline-block;">View Full Trade History &rarr;</a>
-        </div>
 
         {% if fetch_errors %}
         <div class="alert err" style="margin-bottom: 20px;">
@@ -52,7 +32,7 @@
 
         <div class="stat-grid">
             <div class="stat">
-                <div class="stat-label">Initial Capital</div>
+                <div class="stat-label">Initial Capital (Swing)</div>
                 <div class="stat-value">{{ metrics.initial }}</div>
             </div>
             <div class="stat">
@@ -82,47 +62,32 @@
             <canvas id="equityChart" height="90"></canvas>
         </div>
 
-        <div class="page-head"><h1>Open Trades</h1></div>
-        {% if open_trades %}
+        <div class="page-head">
+            <h1>Running Signals &mdash; Preview</h1>
+            <a href="running.html" class="btn" style="text-decoration:none; padding: 8px 16px; font-size: 11px;">See all &rarr;</a>
+        </div>
+        {% if radar_preview %}
         <table style="margin-bottom: 24px;">
-            <thead><tr><th>Asset</th><th>Side</th><th>Entry Time</th><th>Entry Price</th><th>Score</th></tr></thead>
+            <thead><tr><th>Asset</th><th>Side</th><th>Status</th><th>Score</th><th>Detail</th></tr></thead>
             <tbody>
-                {% for t in open_trades %}
-                <tr><td>{{ t.symbol }}</td><td>{{ t.type }}</td><td>{{ t.entry_time }}</td><td>{{ t.entry }}</td><td>{{ t.score }}</td></tr>
+                {% for r in radar_preview %}
+                <tr><td>{{ r.symbol }}</td><td>{{ r.type }}</td><td>{{ r.status }}</td><td>{{ r.score }}</td><td>{{ r.detail }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>
         {% else %}
-        <div class="panel empty-state" style="margin-bottom: 24px;">No trades currently open.</div>
+        <div class="panel empty-state" style="margin-bottom: 24px;">Nothing to show yet.</div>
         {% endif %}
 
-        <div class="page-head"><h1>Pending Setups &mdash; Awaiting Retest</h1></div>
-        {% if pending_setups %}
-        <table>
-            <thead><tr><th>Asset</th><th>Side</th><th>Signal Formed</th><th>Score</th></tr></thead>
-            <tbody>
-                {% for p in pending_setups %}
-                <tr><td>{{ p.symbol }}</td><td>{{ p.type }}</td><td>{{ p.signal_time }}</td><td>{{ p.score }}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="panel empty-state">No setups currently waiting for a retest.</div>
-        {% endif %}
-
-        <div class="page-head"><h1>Missed &mdash; Signal Fired, Account Was Full</h1></div>
-        {% if missed_setups %}
-        <table>
-            <thead><tr><th>Asset</th><th>Side</th><th>Fill Time</th><th>Score</th></tr></thead>
-            <tbody>
-                {% for m in missed_setups %}
-                <tr><td>{{ m.symbol }}</td><td>{{ m.type }}</td><td>{{ m.entry_time }}</td><td>{{ m.score }}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="panel empty-state">No setups have been missed due to a full account.</div>
-        {% endif %}
+        <div class="page-head"><h1>Jump To</h1></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+            <a href="running.html" class="btn" style="text-decoration:none; text-align:center;">Running Signals</a>
+            <a href="history.html" class="btn" style="text-decoration:none; text-align:center;">Trade History</a>
+            <a href="swing.html" class="btn" style="text-decoration:none; text-align:center;">Swing Strategy</a>
+            <a href="intraday.html" class="btn" style="text-decoration:none; text-align:center;">Intraday Strategy</a>
+            <a href="scalp.html" class="btn" style="text-decoration:none; text-align:center;">Scalp Strategy</a>
+            <a href="settings.html" class="btn" style="text-decoration:none; text-align:center;">Settings</a>
+        </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
