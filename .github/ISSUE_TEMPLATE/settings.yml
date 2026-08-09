@@ -1,58 +1,81 @@
-name: "🔧 Bot Settings"
-description: Change balance, trade mode, pairs, or run duration for Kabaka Snipers forward-testing
-title: "[Settings]"
-labels: ["settings"]
-body:
-  - type: markdown
-    attributes:
-      value: |
-        Fill this in and hit **Submit new issue** — the bot picks up your changes
-        automatically within 30 minutes. You don't need to touch any code.
+name: Apply Bot Settings
 
-  - type: input
-    id: balance
-    attributes:
-      label: Starting Balance (USD)
-      description: The account size the bot risks a % of on every trade.
-      placeholder: "62"
-    validations:
-      required: true
+on:
+  issues:
+    types: [opened]
 
-  - type: dropdown
-    id: trade_mode
-    attributes:
-      label: Trade Mode
-      description: How many trades can be open across the whole account at once.
-      options:
-        - "single (1-way — only 1 trade at a time)"
-        - "multi (3-way — up to 3 trades at once)"
-    validations:
-      required: true
+permissions:
+  contents: write
+  issues: write
+  actions: write
 
-  - type: checkboxes
-    id: pairs
-    attributes:
-      label: Pairs to Scan
-      description: Pick at least one.
-      options:
-        - label: ETH/USDT
-        - label: SOL/USDT
+jobs:
+  apply:
+    if: startsWith(github.event.issue.title, '[Settings:')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
 
-  - type: dropdown
-    id: run_days
-    attributes:
-      label: Run Duration
-      description: >-
-        Once this starts counting down, it CANNOT be shortened or stopped early
-        — pick "No limit" if you're not sure yet.
-      options:
-        - "No limit"
-        - "1"
-        - "5"
-        - "10"
-        - "15"
-        - "20"
-        - "25"
-        - "30"
-    validations:
-      required: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Parse settings from issue
+        id: parse
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: python apply_settings.py
+
+      - name: Commit updated config
+        if: steps.parse.outputs.result == 'success'
+        run: |
+          git config user.name "kabaka-snipers-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add config.json
+          git diff --quiet --cached || git commit -m "Settings update via issue #${{ github.event.issue.number }}"
+          git push
+
+      - name: Comment success
+        if: steps.parse.outputs.result == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "✅ Settings applied:\n\n" + `${{ steps.parse.outputs.message }}` + "\n\nTakes effect on the next scan (within 30 min)."
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: "closed"
+            });
+
+      - name: Comment failure
+        if: steps.parse.outputs.result == 'failed'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "❌ Couldn't apply these settings:\n\n" + `${{ steps.parse.outputs.message }}` + "\n\nEdit this issue and re-check the fields, or close it and open a fresh one."
+            });
+
+      - name: Trigger an immediate scan
+        if: steps.parse.outputs.result == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'forward-scan.yml',
+              ref: 'main'
+            });
