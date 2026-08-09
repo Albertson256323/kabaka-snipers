@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kabaka Snipers &middot; {{ strategy_name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+{% set active_page = strategy_slug %}
+{% include 'nav.html' %}
+
+    <main class="shell">
+        <div class="page-head">
+            <h1>{{ strategy_name }}</h1>
+            <span class="page-head-note mono">{{ 'ARMED' if enabled else 'DISARMED' }}</span>
+        </div>
+
+        {% if status_note %}
+        <div class="alert {{ 'err' if not live else 'ok' }}" style="margin-bottom: 20px;">
+            {{ status_note }}
+        </div>
+        {% endif %}
+
+        {% if run_ended %}
+        <div class="alert ok" style="margin-bottom: 20px;">
+            Run window complete as of {{ run_until }} &mdash; no new signals are being accepted.
+        </div>
+        {% endif %}
+
+        <div class="stat-grid">
+            <div class="stat">
+                <div class="stat-label">Launch Switch</div>
+                <div class="stat-value {{ 'up' if enabled else 'down' }}">{{ 'ARMED' if enabled else 'DISARMED' }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Capital</div>
+                <div class="stat-value">{{ balance }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Concurrency</div>
+                <div class="stat-value" style="font-size: 16px;">{{ trade_mode }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Pairs</div>
+                <div class="stat-value" style="font-size: 16px;">{{ pairs }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Lock-In</div>
+                <div class="stat-value" style="font-size: 16px;">{{ (lock_days ~ ' days') if lock_days else 'None set' }}</div>
+            </div>
+            {% if run_until %}
+            <div class="stat">
+                <div class="stat-label">Locked Until</div>
+                <div class="stat-value accent" style="font-size: 14px;">{{ run_until }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="panel" style="padding: 22px 26px;">
+            <div class="stat-label" style="margin-bottom: 10px;">To change these settings</div>
+            <p style="font-size: 12.5px; color: var(--text-dim); line-height: 1.6; margin: 0;">
+                Go to your repo's <strong>Issues &rarr; New issue</strong> and pick the settings form for this
+                strategy. Submitting it arms/disarms the launch switch, sets capital, and locks in a run
+                duration &mdash; the lock cannot be shortened once it starts counting down.
+            </p>
+        </div>
+
+        {% if strategy_slug == 'swing' %}
+        <div style="margin-top: 20px;">
+            <a href="running.html" class="btn" style="text-decoration:none; margin-right: 10px;">View Running Signals</a>
+            <a href="history.html" class="btn" style="text-decoration:none; background: var(--panel-2); color: var(--text); border: 1px solid var(--border);">View History</a>
+        </div>
+        {% endif %}
+    </main>
+</body>
+</html>
