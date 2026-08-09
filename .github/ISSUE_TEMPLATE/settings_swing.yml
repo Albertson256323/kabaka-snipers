@@ -1,0 +1,63 @@
+name: "🔧 Swing Settings"
+description: Balance, launch switch, trade mode, pairs, and lock-in for the Swing (4H) strategy
+title: "[Settings: Swing]"
+labels: ["settings"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fill this in and hit **Submit new issue**. Takes effect within 30 minutes
+        (or immediately, since submitting this also triggers a scan).
+
+  - type: checkboxes
+    id: launch
+    attributes:
+      label: Launch Switch
+      description: Leave unchecked to disarm — no new trades will be taken.
+      options:
+        - label: Arm this strategy now
+
+  - type: input
+    id: balance
+    attributes:
+      label: Starting Balance (USD)
+      placeholder: "30"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: trade_mode
+    attributes:
+      label: Trade Mode
+      options:
+        - "single (1-way — only 1 trade at a time)"
+        - "multi (3-way — up to 3 trades at once)"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: pairs
+    attributes:
+      label: Pairs to Scan
+      options:
+        - label: ETH/USDT
+        - label: SOL/USDT
+
+  - type: dropdown
+    id: run_days
+    attributes:
+      label: Run Duration
+      description: >-
+        Once armed with a duration set, it CANNOT be shortened or stopped early.
+        Pick "No limit" if you're not sure yet.
+      options:
+        - "No limit"
+        - "1"
+        - "5"
+        - "10"
+        - "15"
+        - "20"
+        - "25"
+        - "30"
+    validations:
+      required: true
