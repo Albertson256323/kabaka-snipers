@@ -1,9 +1,11 @@
 # ==========================================
 # FILE: apply_settings.py
 #
-# Parses a submitted "Bot Settings" issue (see .github/ISSUE_TEMPLATE/settings.yml)
-# and writes config.json accordingly. Run by .github/workflows/apply-settings.yml
-# whenever a settings issue is opened.
+# Parses a submitted Settings issue (Swing or Intraday form) and merges the
+# result into config.json's per-strategy structure WITHOUT touching the
+# other strategy's settings. Which strategy is determined by the issue
+# title ("[Settings: Swing]" or "[Settings: Intraday]").
+# Run by .github/workflows/apply-settings.yml whenever a settings issue opens.
 # ==========================================
 import json
 import os
@@ -11,6 +13,7 @@ import re
 import sys
 
 ALL_PAIRS = ["ETH/USDT", "SOL/USDT"]
+CONFIG_PATH = "config.json"
 
 
 def extract_section(body, label):
@@ -42,17 +45,33 @@ def parse_settings(body):
         except (ValueError, TypeError):
             run_days = None
 
+    launch_raw = extract_section(body, "Launch Switch")
+    enabled = bool(re.search(r"\[[xX]\]\s*Arm", launch_raw))
+
     return {
         "starting_balance": balance,
         "trade_mode": trade_mode,
         "pairs": pairs if pairs else None,
         "run_days": run_days,
+        "enabled": enabled,
         "_run_raw": run_raw
     }
 
 
 def main():
+    title = os.environ.get("ISSUE_TITLE", "")
     body = os.environ.get("ISSUE_BODY", "")
+
+    if "intraday" in title.lower():
+        strategy = "intraday"
+    elif "swing" in title.lower():
+        strategy = "swing"
+    else:
+        with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write("result=failed\n")
+            f.write("message=Couldn't tell which strategy this settings issue is for from the title.\n")
+        sys.exit(0)
+
     parsed = parse_settings(body)
 
     errors = []
@@ -64,26 +83,35 @@ def main():
         errors.append("At least one pair must be checked under Pairs to Scan.")
 
     if errors:
-        print("SETTINGS_RESULT=failed")
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write("result=failed\n")
             f.write("message=" + " ".join(errors).replace("\n", " ") + "\n")
         sys.exit(0)
 
-    config = {
+    # Load existing config so the OTHER strategy's settings are untouched
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, "r") as f:
+            full_config = json.load(f)
+    else:
+        full_config = {"strategies": {}}
+    if "strategies" not in full_config:
+        full_config = {"strategies": full_config}
+
+    full_config["strategies"][strategy] = {
+        "enabled": parsed["enabled"],
         "starting_balance": parsed["starting_balance"],
         "trade_mode": parsed["trade_mode"],
         "pairs": parsed["pairs"],
-        "run_days": parsed["run_days"]
+        "lock_days": parsed["run_days"]
     }
-    with open("config.json", "w") as f:
-        json.dump(config, f, indent=2)
+
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(full_config, f, indent=2)
 
     summary = (
-        f"Balance: ${parsed['starting_balance']:.2f} | "
-        f"Mode: {parsed['trade_mode']} | "
-        f"Pairs: {', '.join(parsed['pairs'])} | "
-        f"Run: {parsed['_run_raw'] if parsed['run_days'] else 'No limit'}"
+        f"Strategy: {strategy} | Launch: {'ARMED' if parsed['enabled'] else 'disarmed'} | "
+        f"Balance: ${parsed['starting_balance']:.2f} | Mode: {parsed['trade_mode']} | "
+        f"Pairs: {', '.join(parsed['pairs'])} | Lock: {parsed['_run_raw'] if parsed['run_days'] else 'No limit'}"
     )
     with open(os.environ["GITHUB_OUTPUT"], "a") as f:
         f.write("result=success\n")
