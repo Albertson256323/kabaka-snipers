@@ -1,0 +1,47 @@
+    <header class="masthead">
+        <div class="brand">
+            <div class="brand-mark">KS</div>
+            <div>
+                <div class="brand-name">KABAKA SNIPERS</div>
+                <div class="brand-sub">Forward Test &middot; Live, Real-Time</div>
+            </div>
+        </div>
+        <nav class="masthead-nav">
+            <a href="index.html" class="{{ 'active' if active_page == 'overview' else '' }}">Overview</a>
+            <a href="running.html" class="{{ 'active' if active_page == 'running' else '' }}">Running</a>
+            <a href="history.html" class="{{ 'active' if active_page == 'history' else '' }}">History</a>
+            <a href="swing.html" class="{{ 'active' if active_page == 'swing' else '' }}">Swing</a>
+            <a href="intraday.html" class="{{ 'active' if active_page == 'intraday' else '' }}">Intraday</a>
+            <a href="scalp.html" class="{{ 'active' if active_page == 'scalp' else '' }}">Scalp</a>
+            <a href="settings.html" class="{{ 'active' if active_page == 'settings' else '' }}">Settings</a>
+        </nav>
+        <button class="menu-toggle" onclick="toggleDrawer()" aria-label="Open menu">&#9776;</button>
+    </header>
+
+    <div class="ticker">
+        <span class="ticker-dot"></span>
+        <span class="ticker-text">
+            SWING {{ 'ARMED' if swing_enabled else 'DISARMED' }} &middot;
+            INTRADAY {{ 'ARMED' if intraday_enabled else 'DISARMED' }} &middot;
+            LAST SCAN {{ last_run }}
+        </span>
+    </div>
+
+    <div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer()"></div>
+    <div class="drawer" id="sideDrawer">
+        <a href="index.html">Overview</a>
+        <a href="running.html">Running</a>
+        <a href="history.html">History</a>
+        <a href="swing.html">Swing</a>
+        <a href="intraday.html">Intraday</a>
+        <a href="scalp.html">Scalp</a>
+        <a href="settings.html">Settings</a>
+    </div>
+    <script>
+        function toggleDrawer() {
+            const d = document.getElementById('sideDrawer');
+            const o = document.getElementById('drawerOverlay');
+            d.classList.toggle('open');
+            o.style.display = d.classList.contains('open') ? 'block' : 'none';
+        }
+    </script>
