@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kabaka Snipers &middot; Running Signals</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+{% set active_page = 'running' %}
+{% include 'nav.html' %}
+
+    <main class="shell">
+        <div class="page-head">
+            <h1>Running Signals</h1>
+            <span class="page-head-note mono">Everything happening in the market &mdash; ours or not, triggered or not</span>
+        </div>
+
+        {% if radar %}
+        <table>
+            <thead><tr><th>Asset</th><th>Side</th><th>Status</th><th>Time</th><th>Score</th><th>Detail</th></tr></thead>
+            <tbody>
+                {% for r in radar %}
+                <tr>
+                    <td>{{ r.symbol }}</td>
+                    <td>{{ r.type }}</td>
+                    <td><span class="badge {{ 'win' if 'RUNNING' in r.status else ('loss' if 'MISSED' in r.status else 'exp') }}">{{ r.status }}</span></td>
+                    <td>{{ r.time }}</td>
+                    <td>{{ r.score }}</td>
+                    <td>{{ r.detail }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="panel empty-state">No signal activity yet.</div>
+        {% endif %}
+    </main>
+</body>
+</html>
