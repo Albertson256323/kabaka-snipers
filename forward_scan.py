@@ -21,16 +21,29 @@ import pandas as pd
 import json
 import os
 from datetime import datetime, timezone
-from jinja2 import Template
+from jinja2 import Environment, FileSystemLoader
 
 # ---------- Configuration ----------
 # Balance, trade mode, pairs, and run duration all live in config.json —
 # normally updated automatically by the Settings issue form (see
 # .github/ISSUE_TEMPLATE/settings.yml), or you can edit config.json by hand.
 # These are only the fallback defaults used if config.json is missing.
-DEFAULT_STARTING_BALANCE = 62.0
-DEFAULT_TRADE_MODE = "single"   # "single" = 1 concurrent trade, "multi" = up to 3
-DEFAULT_PAIRS = ["ETH/USDT", "SOL/USDT"]
+DEFAULT_STRATEGIES = {
+    "swing": {
+        "enabled": False,
+        "starting_balance": 30.0,
+        "trade_mode": "single",
+        "pairs": ["ETH/USDT", "SOL/USDT"],
+        "lock_days": None
+    },
+    "intraday": {
+        "enabled": False,
+        "starting_balance": 20.0,
+        "trade_mode": "single",
+        "pairs": ["ETH/USDT", "SOL/USDT"],
+        "lock_days": None
+    }
+}
 ALL_PAIRS = ["ETH/USDT", "SOL/USDT"]
 
 LOOKBACK_DAYS = 60             # candles fetched each run — plenty for the 6-candle structure window
@@ -46,54 +59,68 @@ DOCS_DIR = "docs"
 
 def load_config():
     """
-    Reads config.json — normally written by the Settings issue form, or
-    editable by hand. Takes effect on the next scan run (minimum 30 min).
+    Reads config.json — normally written by the Settings issue forms, or
+    editable by hand. Each strategy (swing/intraday) has its own enabled
+    switch, balance, mode, pairs, and lock. Missing/invalid fields fall
+    back to DEFAULT_STRATEGIES per-field, not the whole file at once.
     """
-    defaults = {
-        "starting_balance": DEFAULT_STARTING_BALANCE,
-        "trade_mode": DEFAULT_TRADE_MODE,
-        "pairs": DEFAULT_PAIRS,
-        "run_days": None
-    }
     if not os.path.exists(CONFIG_PATH):
-        return defaults
+        return {k: dict(v) for k, v in DEFAULT_STRATEGIES.items()}
     try:
         with open(CONFIG_PATH, "r") as f:
-            cfg = json.load(f)
+            raw = json.load(f)
     except Exception:
-        return defaults
+        return {k: dict(v) for k, v in DEFAULT_STRATEGIES.items()}
 
-    starting_balance = float(cfg.get("starting_balance", DEFAULT_STARTING_BALANCE))
-    trade_mode = cfg.get("trade_mode", DEFAULT_TRADE_MODE)
-    if trade_mode not in TRADE_MODE_LIMITS:
-        trade_mode = DEFAULT_TRADE_MODE
+    strategies_raw = raw.get("strategies", raw)  # tolerate old flat format too
+    result = {}
+    for name, defaults in DEFAULT_STRATEGIES.items():
+        cfg = strategies_raw.get(name, {}) if isinstance(strategies_raw, dict) else {}
+        enabled = bool(cfg.get("enabled", defaults["enabled"]))
+        try:
+            balance = float(cfg.get("starting_balance", defaults["starting_balance"]))
+        except (ValueError, TypeError):
+            balance = defaults["starting_balance"]
+        trade_mode = cfg.get("trade_mode", defaults["trade_mode"])
+        if trade_mode not in TRADE_MODE_LIMITS:
+            trade_mode = defaults["trade_mode"]
+        pairs = [p for p in cfg.get("pairs", defaults["pairs"]) if p in ALL_PAIRS]
+        if not pairs:
+            pairs = defaults["pairs"]
+        lock_days = cfg.get("lock_days", None)
+        try:
+            lock_days = int(lock_days) if lock_days not in (None, "", "None") else None
+        except (ValueError, TypeError):
+            lock_days = None
 
-    pairs = cfg.get("pairs", DEFAULT_PAIRS)
-    pairs = [p for p in pairs if p in ALL_PAIRS]
-    if not pairs:
-        pairs = DEFAULT_PAIRS
+        result[name] = {
+            "enabled": enabled, "starting_balance": balance,
+            "trade_mode": trade_mode, "pairs": pairs, "lock_days": lock_days
+        }
+    return result
 
-    run_days = cfg.get("run_days", None)
-    try:
-        run_days = int(run_days) if run_days not in (None, "", "None") else None
-    except (ValueError, TypeError):
-        run_days = None
 
-    return {"starting_balance": starting_balance, "trade_mode": trade_mode, "pairs": pairs, "run_days": run_days}
+def default_strategy_state(starting_balance):
+    return {
+        "forward_test_start_ts": None,
+        "run_until_ts": None,
+        "starting_balance": starting_balance,
+        "balance": starting_balance,
+        "closed_trades": [],
+        "last_run": None
+    }
 
 
 def load_state():
     if os.path.exists(STATE_PATH):
         with open(STATE_PATH, "r") as f:
-            return json.load(f)
-    return {
-        "forward_test_start_ts": None,   # set on first run
-        "run_until_ts": None,            # set once, first time run_days is configured — never shortened
-        "starting_balance": DEFAULT_STARTING_BALANCE,
-        "balance": DEFAULT_STARTING_BALANCE,
-        "closed_trades": [],
-        "last_run": None
-    }
+            state = json.load(f)
+    else:
+        state = {}
+    for name in DEFAULT_STRATEGIES:
+        if name not in state:
+            state[name] = default_strategy_state(DEFAULT_STRATEGIES[name]["starting_balance"])
+    return state
 
 
 def save_state(state):
@@ -236,37 +263,38 @@ def fetch_recent(exchange, symbol, days_back):
     return df.drop_duplicates(subset='timestamp').reset_index(drop=True)
 
 
-def run_forward_scan():
-    config = load_config()
+def run_swing_scan(swing_config, swing_state, now, now_ms):
+    """
+    Exactly the same swing (4H CHoCH) logic as before — untouched. Now
+    gated by swing_config['enabled'] (the launch switch) and operating on
+    swing_state specifically, so it sits alongside other strategies without
+    them sharing data. Returns (pending_setups, all_open_trades,
+    missed_setups, fetch_errors, run_locked_and_expired, symbol_frames).
+    """
+    if swing_state["forward_test_start_ts"] is None:
+        swing_state["forward_test_start_ts"] = now_ms
+
+    swing_state["starting_balance"] = swing_config["starting_balance"]
+
+    if swing_state.get("run_until_ts") is None and swing_config["lock_days"] is not None:
+        swing_state["run_until_ts"] = swing_state["forward_test_start_ts"] + (swing_config["lock_days"] * 24 * 60 * 60 * 1000)
+
+    run_locked_and_expired = swing_state.get("run_until_ts") is not None and now_ms >= swing_state["run_until_ts"]
+
     global MAX_CONCURRENT
-    MAX_CONCURRENT = TRADE_MODE_LIMITS[config['trade_mode']]
-
-    state = load_state()
-    now = datetime.now(timezone.utc)
-    now_ms = int(now.timestamp() * 1000)
-
-    if state["forward_test_start_ts"] is None:
-        state["forward_test_start_ts"] = now_ms  # anchor: only signals from this moment on ever count
-
-    # your balance is whatever config.json says — editable any time, no code changes
-    state["starting_balance"] = config["starting_balance"]
-
-    # run-duration lock: set ONCE the first time run_days is configured, and
-    # never shortened after that — matches "once it's running I can't stop
-    # it early." Leaving run_days unset keeps it running indefinitely.
-    if state.get("run_until_ts") is None and config["run_days"] is not None:
-        state["run_until_ts"] = state["forward_test_start_ts"] + (config["run_days"] * 24 * 60 * 60 * 1000)
-
-    run_locked_and_expired = state.get("run_until_ts") is not None and now_ms >= state["run_until_ts"]
+    MAX_CONCURRENT = TRADE_MODE_LIMITS[swing_config['trade_mode']]
 
     exchange = ccxt.okx({'enableRateLimit': True})
-    all_candidates = []       # pending setups (still awaiting retest) — always reported, no slot needed
-    raw_filled = []           # every setup that got a retest fill, BEFORE concurrency selection
-    missed_setups = []        # filled setups passed over because all concurrency slots were full
+    all_candidates = []
+    raw_filled = []
+    missed_setups = []
     symbol_frames = {}
     fetch_errors = []
 
-    for symbol in config["pairs"]:
+    if not swing_config["enabled"]:
+        return [], [], [], [], False, {}
+
+    for symbol in swing_config["pairs"]:
         try:
             df = fetch_recent(exchange, symbol, LOOKBACK_DAYS)
             if len(df) < 15:
@@ -276,16 +304,12 @@ def run_forward_scan():
         except Exception as e:
             fetch_errors.append(f"{symbol}: {e}")
 
-    # --- re-derive every setup from the anchor point forward, each run ---
-    # (cheap, self-correcting, and avoids ever having to hand-merge partial state)
-    # Once the locked run window has ended, no NEW setups are considered at
-    # all — but trades already open still get resolved below.
     if not run_locked_and_expired:
         for symbol, df in symbol_frames.items():
             for i in range(6, len(df)):
                 c_candle = df.iloc[i]
-                if c_candle['timestamp'] < state["forward_test_start_ts"]:
-                    continue  # this setup formed before we started forward-testing — doesn't count
+                if c_candle['timestamp'] < swing_state["forward_test_start_ts"]:
+                    continue
 
                 window = df.iloc[i - 6:i]
                 structural_high = window['high'].max()
@@ -311,7 +335,7 @@ def run_forward_scan():
 
                 fill_status, fill_idx = find_limit_fill_live(df, i, broken_level, is_bullish, LIMIT_FILL_WINDOW)
                 if fill_status == 'expired':
-                    continue  # never retested — this setup is dead, doesn't count
+                    continue
                 if fill_status == 'pending':
                     all_candidates.append({
                         'status': 'pending', 'symbol': symbol, 'signal_time': c_candle['timestamp'],
@@ -319,7 +343,6 @@ def run_forward_scan():
                     })
                     continue
 
-                # filled — but NOT yet decided whether it's actually taken (concurrency limit applies below)
                 entry_price = broken_level
                 risk_pips = abs(entry_price - sl_price)
                 if risk_pips == 0:
@@ -336,16 +359,12 @@ def run_forward_scan():
                     'volatility_ratio': volatility_ratio, 'exit_result': exit_result
                 })
 
-    # --- apply the concurrency limit: walk every filled setup in true time
-    #     order, only accepting one when a slot is actually free. This is
-    #     the same rule the backtest engine uses — a setup on the other pair
-    #     simply doesn't count if the account was already occupied. ---
     raw_filled.sort(key=lambda t: t['entry_time'])
     grouped = {}
     for t in raw_filled:
         grouped.setdefault(t['entry_time'], []).append(t)
 
-    open_exits = []   # exit timestamps of accepted trades; float('inf') for still-open ones
+    open_exits = []
     all_open_trades = []
     all_candidates_filled = []
 
@@ -354,12 +373,12 @@ def run_forward_scan():
         open_exits = [e for e in open_exits if e > ts]
         available_slots = MAX_CONCURRENT - len(open_exits)
         if available_slots <= 0:
-            missed_setups.extend(group)  # account fully occupied — every setup at this moment is passed over
+            missed_setups.extend(group)
             continue
 
         ranked = sorted(group, key=lambda c: c['score'], reverse=True)
         chosen = ranked[:available_slots]
-        missed_setups.extend(ranked[available_slots:])  # scored lower than the slots available at this moment
+        missed_setups.extend(ranked[available_slots:])
 
         for t in chosen:
             exit_result = t['exit_result']
@@ -367,9 +386,7 @@ def run_forward_scan():
                 open_exits.append(float('inf'))
                 all_open_trades.append(t)
             else:
-                exit_ts_val = t['entry_time']  # placeholder, real value set below
                 exit_index = exit_result['exit_index']
-                # need the actual candle timestamp for this exit — resolved via symbol_frames
                 exit_ts_val = symbol_frames[t['symbol']].iloc[exit_index]['timestamp']
                 open_exits.append(exit_ts_val)
                 t.update({
@@ -382,20 +399,19 @@ def run_forward_scan():
 
     all_candidates.extend(all_candidates_filled)
 
-    # --- settle resolved trades not already recorded, oldest first ---
-    already_closed_keys = {(t['symbol'], t['entry_time']) for t in state['closed_trades']}
+    already_closed_keys = {(t['symbol'], t['entry_time']) for t in swing_state['closed_trades']}
     newly_resolved = [c for c in all_candidates if c.get('status') == 'resolved'
                       and (c['symbol'], c['entry_time']) not in already_closed_keys]
     newly_resolved.sort(key=lambda t: t['entry_time'])
 
-    balance = state['balance']
+    balance = swing_state['balance']
     for t in newly_resolved:
         risk_pct = 0.02 if t['volatility_ratio'] < 2.0 else 0.015
-        risk_amount = state['starting_balance'] * risk_pct
+        risk_amount = swing_state['starting_balance'] * risk_pct
         balance += (risk_amount * t['r_multiple'])
         if balance < 5.0:
             balance = 5.0
-        state['closed_trades'].append({
+        swing_state['closed_trades'].append({
             'symbol': t['symbol'],
             'type': 'BUY' if t['is_bullish'] else 'SELL',
             'signal_time': t['signal_time'],
@@ -408,89 +424,144 @@ def run_forward_scan():
             'balance_after': round(balance, 2)
         })
 
-    state['balance'] = round(balance, 2)
-    state['last_run'] = now.strftime('%Y-%m-%d %H:%M UTC')
+    swing_state['balance'] = round(balance, 2)
+    swing_state['last_run'] = now.strftime('%Y-%m-%d %H:%M UTC')
 
     pending_setups = [c for c in all_candidates if c.get('status') == 'pending']
+    return pending_setups, all_open_trades, missed_setups, fetch_errors, run_locked_and_expired, symbol_frames
+
+
+def run_forward_scan():
+    config = load_config()
+    state = load_state()
+    now = datetime.now(timezone.utc)
+    now_ms = int(now.timestamp() * 1000)
+
+    pending, open_trades, missed, fetch_errors, swing_run_ended, symbol_frames = run_swing_scan(
+        config["swing"], state["swing"], now, now_ms
+    )
 
     save_state(state)
-    render_dashboard(state, pending_setups, all_open_trades, missed_setups, fetch_errors, run_locked_and_expired)
+    render_all_pages(config, state, pending, open_trades, missed, fetch_errors, swing_run_ended, symbol_frames)
 
 
-def render_dashboard(state, pending_setups, open_trades, missed_setups, fetch_errors, run_ended):
-    os.makedirs(DOCS_DIR, exist_ok=True)
+# ---------- Multi-page dashboard rendering ----------
 
-    closed = state['closed_trades']
+def _fmt_ts(ms):
+    return datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc).strftime('%Y-%m-%d %H:%M')
+
+
+def _build_swing_metrics(swing_state):
+    closed = swing_state['closed_trades']
     wins = sum(1 for t in closed if t['outcome'] == 'WIN')
     losses = sum(1 for t in closed if t['outcome'] == 'LOSS')
     expired = sum(1 for t in closed if t['outcome'] == 'EXP')
     decisive = wins + losses
     win_rate = (wins / decisive * 100) if decisive > 0 else 0.0
-    net_pl = state['balance'] - state['starting_balance']
-
-    def fmt_ts(ms):
-        return datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc).strftime('%Y-%m-%d %H:%M')
-
-    metrics = {
-        'initial': f"${state['starting_balance']:.2f}",
-        'final': f"${state['balance']:.2f}",
+    net_pl = swing_state['balance'] - swing_state['starting_balance']
+    return {
+        'initial': f"${swing_state['starting_balance']:.2f}",
+        'final': f"${swing_state['balance']:.2f}",
         'net': f"${net_pl:+,.2f}",
         'trades': len(closed),
         'wins': wins, 'losses': losses, 'expired': expired,
         'win_rate': f"{win_rate:.1f}%"
     }
 
-    equity_curve = [{"time": "Start", "balance": state['starting_balance']}]
-    for t in closed:
-        equity_curve.append({"time": fmt_ts(t['exit_time']), "balance": t['balance_after']})
+
+def render_all_pages(config, state, pending, open_trades, missed, fetch_errors, swing_run_ended, symbol_frames):
+    os.makedirs(DOCS_DIR, exist_ok=True)
+    os.makedirs(os.path.join(DOCS_DIR, 'static'), exist_ok=True)
+    with open('static/style.css') as src, open(os.path.join(DOCS_DIR, 'static', 'style.css'), 'w') as dst:
+        dst.write(src.read())
+
+    swing_state = state['swing']
+    swing_config = config['swing']
+    intraday_config = config['intraday']
+    intraday_state = state['intraday']
+
+    metrics = _build_swing_metrics(swing_state)
+    equity_curve = [{"time": "Start", "balance": swing_state['starting_balance']}]
+    for t in swing_state['closed_trades']:
+        equity_curve.append({"time": _fmt_ts(t['exit_time']), "balance": t['balance_after']})
 
     display_closed = [{
         'id': i + 1, 'symbol': t['symbol'], 'type': t['type'],
-        'signal_time': fmt_ts(t['signal_time']), 'entry_time': fmt_ts(t['entry_time']),
-        'exit_time': fmt_ts(t['exit_time']), 'entry': f"${t['entry_price']:,.4f}",
+        'signal_time': _fmt_ts(t['signal_time']), 'entry_time': _fmt_ts(t['entry_time']),
+        'exit_time': _fmt_ts(t['exit_time']), 'entry': f"${t['entry_price']:,.4f}",
         'score': f"{t['score']}%", 'outcome': t['outcome'],
         'r_multiple': f"{t['r_multiple']:+.2f}R", 'balance': f"${t['balance_after']:,.2f}"
-    } for i, t in enumerate(closed)]
+    } for i, t in enumerate(swing_state['closed_trades'])]
 
     display_open = [{
         'symbol': t['symbol'], 'type': 'BUY' if t['is_bullish'] else 'SELL',
-        'entry_time': fmt_ts(t['entry_time']), 'entry': f"${t['entry_price']:,.4f}",
+        'entry_time': _fmt_ts(t['entry_time']), 'entry': f"${t['entry_price']:,.4f}",
         'score': f"{t['score']}%"
     } for t in open_trades]
 
     display_pending = [{
         'symbol': t['symbol'], 'type': 'BUY' if t['is_bullish'] else 'SELL',
-        'signal_time': fmt_ts(t['signal_time']), 'score': f"{t['score']}%"
-    } for t in pending_setups]
+        'signal_time': _fmt_ts(t['signal_time']), 'score': f"{t['score']}%"
+    } for t in pending]
 
     display_missed = [{
         'symbol': t['symbol'], 'type': 'BUY' if t['is_bullish'] else 'SELL',
-        'entry_time': fmt_ts(t['entry_time']), 'score': f"{t['score']}%"
-    } for t in missed_setups]
+        'entry_time': _fmt_ts(t['entry_time']), 'score': f"{t['score']}%"
+    } for t in missed]
 
-    with open('templates/index_template.html') as f:
-        index_tpl = Template(f.read())
-    with open('templates/history_template.html') as f:
-        history_tpl = Template(f.read())
+    radar_raw = compute_signal_radar(pending, open_trades, missed, swing_state['closed_trades'], symbol_frames, min_count=10)
+    display_radar = [{
+        'symbol': r['symbol'], 'type': r['type'], 'status': r['status'],
+        'score': f"{r['score']}%", 'detail': r['detail'], 'time': _fmt_ts(r['sort_ts'])
+    } for r in radar_raw]
 
-    mode_label = "multi" if MAX_CONCURRENT == TRADE_MODE_LIMITS["multi"] else "single"
-    run_until_str = fmt_ts(state['run_until_ts']) if state.get('run_until_ts') else None
-    common = {
-        'metrics': metrics, 'last_run': state['last_run'],
-        'open_trades': display_open, 'pending_setups': display_pending, 'missed_setups': display_missed,
-        'fetch_errors': fetch_errors, 'trade_mode': mode_label,
-        'run_until': run_until_str, 'run_ended': run_ended
+    mode_label = "multi" if swing_config['trade_mode'] == 'multi' else "single"
+    run_until_str = _fmt_ts(swing_state['run_until_ts']) if swing_state.get('run_until_ts') else None
+    last_run = swing_state.get('last_run') or "never — strategy not yet launched"
+
+    nav_common = {
+        'last_run': last_run,
+        'swing_enabled': swing_config['enabled'],
+        'intraday_enabled': intraday_config['enabled'],
     }
 
-    with open(os.path.join(DOCS_DIR, 'index.html'), 'w') as f:
-        f.write(index_tpl.render(**common, equity=equity_curve))
+    env = Environment(loader=FileSystemLoader('templates'))
 
-    with open(os.path.join(DOCS_DIR, 'history.html'), 'w') as f:
-        f.write(history_tpl.render(**common, logs=display_closed))
+    def render(name, template_file, **extra):
+        tpl = env.get_template(template_file)
+        with open(os.path.join(DOCS_DIR, name), 'w') as f:
+            f.write(tpl.render(**nav_common, **extra))
 
-    os.makedirs(os.path.join(DOCS_DIR, 'static'), exist_ok=True)
-    with open('static/style.css') as src, open(os.path.join(DOCS_DIR, 'static', 'style.css'), 'w') as dst:
-        dst.write(src.read())
+    render('index.html', 'index_template.html',
+           metrics=metrics, equity=equity_curve, run_until=run_until_str, run_ended=swing_run_ended,
+           trade_mode=mode_label, fetch_errors=fetch_errors, radar_preview=display_radar[:5])
+
+    render('running.html', 'running_template.html', radar=display_radar)
+
+    render('history.html', 'history_template.html', logs=display_closed, trade_mode=mode_label, run_until=run_until_str)
+
+    render('swing.html', 'strategy_template.html',
+           strategy_name='Swing (Malaysian SNR — 4H)', strategy_slug='swing',
+           enabled=swing_config['enabled'], balance=f"${swing_config['starting_balance']:.2f}",
+           trade_mode=mode_label, pairs=', '.join(swing_config['pairs']),
+           lock_days=swing_config['lock_days'], run_until=run_until_str, run_ended=swing_run_ended,
+           live=True, status_note=None)
+
+    intraday_run_until = _fmt_ts(intraday_state['run_until_ts']) if intraday_state.get('run_until_ts') else None
+    render('intraday.html', 'strategy_template.html',
+           strategy_name='Intraday MSNR (Daily \u2192 H4 \u2192 15M)', strategy_slug='intraday',
+           enabled=intraday_config['enabled'], balance=f"${intraday_config['starting_balance']:.2f}",
+           trade_mode=intraday_config['trade_mode'], pairs=', '.join(intraday_config['pairs']),
+           lock_days=intraday_config['lock_days'], run_until=intraday_run_until, run_ended=False,
+           live=False, status_note="Engine built and unit-tested, not yet wired into the live scan \u2014 this switch doesn't trigger real trades yet.")
+
+    render('scalp.html', 'strategy_template.html',
+           strategy_name='Scalp', strategy_slug='scalp',
+           enabled=False, balance='\u2014', trade_mode='\u2014', pairs='\u2014',
+           lock_days=None, run_until=None, run_ended=False,
+           live=False, status_note="Waiting on the Scalp ruleset \u2014 send the rules the same way MSNR intraday was defined, and this gets built next.")
+
+    render('settings.html', 'settings_template.html', config=config)
 
 
 if __name__ == '__main__':
