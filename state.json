@@ -10,7 +10,7 @@
     "starting_balance": 30.0,
     "balance": 30.0,
     "closed_trades": [],
-    "last_run": "2026-08-13 04:30 UTC"
+    "last_run": "2026-08-13 05:00 UTC"
   },
   "intraday": {
     "forward_test_start_ts": null,
