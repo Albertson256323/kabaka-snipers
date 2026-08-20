@@ -35,7 +35,7 @@
         <span class="ticker-text">
             SWING ARMED &middot;
             INTRADAY DISARMED &middot;
-            LAST SCAN 2026-08-19 23:46 UTC
+            LAST SCAN 2026-08-20 00:00 UTC
         </span>
     </div>
 
@@ -75,19 +75,19 @@
             </div>
             <div class="stat">
                 <div class="stat-label">Current Balance</div>
-                <div class="stat-value">$30.00</div>
+                <div class="stat-value">$29.40</div>
             </div>
             <div class="stat">
                 <div class="stat-label">Net Growth</div>
-                <div class="stat-value up">$+0.00</div>
+                <div class="stat-value down">$-0.60</div>
             </div>
             <div class="stat">
                 <div class="stat-label">Closed Trades</div>
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
             </div>
             <div class="stat">
                 <div class="stat-label">W / L / EXP</div>
-                <div class="stat-value" style="font-size: 16px;"><span class="up">0W</span> <span style="color: var(--text-faint);">/</span> <span class="down">0L</span> <span style="color: var(--text-faint);">/</span> <span style="color: var(--text-dim);">0EXP</span></div>
+                <div class="stat-value" style="font-size: 16px;"><span class="up">0W</span> <span style="color: var(--text-faint);">/</span> <span class="down">1L</span> <span style="color: var(--text-faint);">/</span> <span style="color: var(--text-dim);">0EXP</span></div>
             </div>
             <div class="stat">
                 <div class="stat-label">Win Rate</div>
@@ -109,9 +109,9 @@
             <thead><tr><th>Asset</th><th>Side</th><th>Status</th><th>Score</th><th>Detail</th></tr></thead>
             <tbody>
                 
-                <tr><td>ETH/USDT</td><td>SELL</td><td>PENDING</td><td>51.2%</td><td>Setup formed, awaiting retest to trigger entry</td></tr>
+                <tr><td>ETH/USDT</td><td>SELL</td><td>RUNNING</td><td>51.2%</td><td>20% of the way to Stop Loss</td></tr>
                 
-                <tr><td>SOL/USDT</td><td>BUY</td><td>RUNNING</td><td>45.7%</td><td>100% of the way to Stop Loss</td></tr>
+                <tr><td>SOL/USDT</td><td>BUY</td><td>CLOSED (LOSS)</td><td>45.7%</td><td>Finished at -1.00R</td></tr>
                 
             </tbody>
         </table>
@@ -130,7 +130,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const equityData = [{"balance": 30.0, "time": "Start"}];
+        const equityData = [{"balance": 30.0, "time": "Start"}, {"balance": 29.4, "time": "2026-08-10 00:00"}];
         const labels = equityData.map(item => item.time);
         const dataPoints = equityData.map(item => item.balance);
         const styles = getComputedStyle(document.documentElement);
