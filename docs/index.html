@@ -35,7 +35,7 @@
         <span class="ticker-text">
             SWING ARMED &middot;
             INTRADAY DISARMED &middot;
-            LAST SCAN 2026-08-22 15:43 UTC
+            LAST SCAN 2026-08-22 16:00 UTC
         </span>
     </div>
 
@@ -75,19 +75,19 @@
             </div>
             <div class="stat">
                 <div class="stat-label">Current Balance</div>
-                <div class="stat-value">$28.51</div>
+                <div class="stat-value">$27.31</div>
             </div>
             <div class="stat">
                 <div class="stat-label">Net Growth</div>
-                <div class="stat-value down">$-1.49</div>
+                <div class="stat-value down">$-2.69</div>
             </div>
             <div class="stat">
                 <div class="stat-label">Closed Trades</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">7</div>
             </div>
             <div class="stat">
                 <div class="stat-label">W / L / EXP</div>
-                <div class="stat-value" style="font-size: 16px;"><span class="up">0W</span> <span style="color: var(--text-faint);">/</span> <span class="down">3L</span> <span style="color: var(--text-faint);">/</span> <span style="color: var(--text-dim);">2EXP</span></div>
+                <div class="stat-value" style="font-size: 16px;"><span class="up">0W</span> <span style="color: var(--text-faint);">/</span> <span class="down">5L</span> <span style="color: var(--text-faint);">/</span> <span style="color: var(--text-dim);">2EXP</span></div>
             </div>
             <div class="stat">
                 <div class="stat-label">Win Rate</div>
@@ -109,9 +109,9 @@
             <thead><tr><th>Asset</th><th>Side</th><th>Status</th><th>Score</th><th>Detail</th></tr></thead>
             <tbody>
                 
-                <tr><td>ETH/USDT</td><td>BUY</td><td>RUNNING</td><td>46.4%</td><td>64% of the way to Stop Loss</td></tr>
+                <tr><td>ETH/USDT</td><td>BUY</td><td>CLOSED (LOSS)</td><td>46.4%</td><td>Finished at -1.00R</td></tr>
                 
-                <tr><td>SOL/USDT</td><td>BUY</td><td>RUNNING</td><td>32.4%</td><td>100% of the way to Stop Loss</td></tr>
+                <tr><td>SOL/USDT</td><td>BUY</td><td>CLOSED (LOSS)</td><td>32.4%</td><td>Finished at -1.00R</td></tr>
                 
                 <tr><td>SOL/USDT</td><td>SELL</td><td>CLOSED (EXP)</td><td>46.5%</td><td>Finished at -0.68R</td></tr>
                 
@@ -136,7 +136,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const equityData = [{"balance": 30.0, "time": "Start"}, {"balance": 29.4, "time": "2026-08-10 00:00"}, {"balance": 30.12, "time": "2026-08-11 16:00"}, {"balance": 29.52, "time": "2026-08-11 20:00"}, {"balance": 29.11, "time": "2026-08-12 08:00"}, {"balance": 28.51, "time": "2026-08-12 08:00"}];
+        const equityData = [{"balance": 30.0, "time": "Start"}, {"balance": 29.4, "time": "2026-08-10 00:00"}, {"balance": 30.12, "time": "2026-08-11 16:00"}, {"balance": 29.52, "time": "2026-08-11 20:00"}, {"balance": 29.11, "time": "2026-08-12 08:00"}, {"balance": 28.51, "time": "2026-08-12 08:00"}, {"balance": 27.91, "time": "2026-08-12 16:00"}, {"balance": 27.31, "time": "2026-08-12 16:00"}];
         const labels = equityData.map(item => item.time);
         const dataPoints = equityData.map(item => item.balance);
         const styles = getComputedStyle(document.documentElement);
