@@ -8,7 +8,7 @@
     "forward_test_start_ts": 1786244430379,
     "run_until_ts": null,
     "starting_balance": 30.0,
-    "balance": 27.31,
+    "balance": 26.71,
     "closed_trades": [
       {
         "symbol": "SOL/USDT",
@@ -93,9 +93,21 @@
         "outcome": "LOSS",
         "r_multiple": -1.0,
         "balance_after": 27.31
+      },
+      {
+        "symbol": "SOL/USDT",
+        "type": "SELL",
+        "signal_time": 1786723200000.0,
+        "entry_time": 1786737600000.0,
+        "exit_time": 1786752000000.0,
+        "entry_price": 75.05,
+        "score": 33.3,
+        "outcome": "LOSS",
+        "r_multiple": -1.0,
+        "balance_after": 26.71
       }
     ],
-    "last_run": "2026-08-24 23:49 UTC"
+    "last_run": "2026-08-25 00:00 UTC"
   },
   "intraday": {
     "forward_test_start_ts": null,
