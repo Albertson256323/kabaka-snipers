@@ -35,7 +35,7 @@
         <span class="ticker-text">
             SWING ARMED &middot;
             INTRADAY DISARMED &middot;
-            LAST SCAN 2026-08-31 23:59 UTC
+            LAST SCAN 2026-09-01 00:00 UTC
         </span>
     </div>
 
@@ -75,23 +75,23 @@
             </div>
             <div class="stat">
                 <div class="stat-label">Current Balance</div>
-                <div class="stat-value">$26.72</div>
+                <div class="stat-value">$29.12</div>
             </div>
             <div class="stat">
                 <div class="stat-label">Net Growth</div>
-                <div class="stat-value down">$-3.28</div>
+                <div class="stat-value down">$-0.88</div>
             </div>
             <div class="stat">
                 <div class="stat-label">Closed Trades</div>
-                <div class="stat-value">15</div>
+                <div class="stat-value">16</div>
             </div>
             <div class="stat">
                 <div class="stat-label">W / L / EXP</div>
-                <div class="stat-value" style="font-size: 16px;"><span class="up">1W</span> <span style="color: var(--text-faint);">/</span> <span class="down">11L</span> <span style="color: var(--text-faint);">/</span> <span style="color: var(--text-dim);">3EXP</span></div>
+                <div class="stat-value" style="font-size: 16px;"><span class="up">2W</span> <span style="color: var(--text-faint);">/</span> <span class="down">11L</span> <span style="color: var(--text-faint);">/</span> <span style="color: var(--text-dim);">3EXP</span></div>
             </div>
             <div class="stat">
                 <div class="stat-label">Win Rate</div>
-                <div class="stat-value accent">8.3%</div>
+                <div class="stat-value accent">15.4%</div>
             </div>
         </div>
 
@@ -109,13 +109,13 @@
             <thead><tr><th>Asset</th><th>Side</th><th>Status</th><th>Score</th><th>Detail</th></tr></thead>
             <tbody>
                 
+                <tr><td>SOL/USDT</td><td>BUY</td><td>PENDING</td><td>23.8%</td><td>Setup formed, awaiting retest to trigger entry</td></tr>
+                
+                <tr><td>SOL/USDT</td><td>BUY</td><td>RUNNING</td><td>24.1%</td><td>30% of the way to Take Profit</td></tr>
+                
                 <tr><td>ETH/USDT</td><td>BUY</td><td>PENDING</td><td>32.9%</td><td>Setup formed, awaiting retest to trigger entry</td></tr>
                 
-                <tr><td>SOL/USDT</td><td>BUY</td><td>PENDING</td><td>24.1%</td><td>Setup formed, awaiting retest to trigger entry</td></tr>
-                
-                <tr><td>SOL/USDT</td><td>BUY</td><td>RUNNING</td><td>33.5%</td><td>67% of the way to Take Profit</td></tr>
-                
-                <tr><td>SOL/USDT</td><td>BUY</td><td>PENDING</td><td>42.3%</td><td>Setup formed, awaiting retest to trigger entry</td></tr>
+                <tr><td>SOL/USDT</td><td>BUY</td><td>CLOSED (WIN)</td><td>33.5%</td><td>Finished at +4.00R</td></tr>
                 
                 <tr><td>SOL/USDT</td><td>BUY</td><td>CLOSED (WIN)</td><td>34.2%</td><td>Finished at +4.00R</td></tr>
                 
@@ -136,7 +136,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const equityData = [{"balance": 30.0, "time": "Start"}, {"balance": 29.4, "time": "2026-08-10 00:00"}, {"balance": 30.12, "time": "2026-08-11 16:00"}, {"balance": 29.52, "time": "2026-08-11 20:00"}, {"balance": 29.11, "time": "2026-08-12 08:00"}, {"balance": 28.51, "time": "2026-08-12 08:00"}, {"balance": 27.91, "time": "2026-08-12 16:00"}, {"balance": 27.31, "time": "2026-08-12 16:00"}, {"balance": 26.71, "time": "2026-08-15 00:00"}, {"balance": 26.11, "time": "2026-08-17 04:00"}, {"balance": 25.51, "time": "2026-08-17 04:00"}, {"balance": 24.91, "time": "2026-08-17 12:00"}, {"balance": 24.31, "time": "2026-08-18 00:00"}, {"balance": 23.71, "time": "2026-08-18 00:00"}, {"balance": 24.32, "time": "2026-08-19 00:00"}, {"balance": 26.72, "time": "2026-08-19 12:00"}];
+        const equityData = [{"balance": 30.0, "time": "Start"}, {"balance": 29.4, "time": "2026-08-10 00:00"}, {"balance": 30.12, "time": "2026-08-11 16:00"}, {"balance": 29.52, "time": "2026-08-11 20:00"}, {"balance": 29.11, "time": "2026-08-12 08:00"}, {"balance": 28.51, "time": "2026-08-12 08:00"}, {"balance": 27.91, "time": "2026-08-12 16:00"}, {"balance": 27.31, "time": "2026-08-12 16:00"}, {"balance": 26.71, "time": "2026-08-15 00:00"}, {"balance": 26.11, "time": "2026-08-17 04:00"}, {"balance": 25.51, "time": "2026-08-17 04:00"}, {"balance": 24.91, "time": "2026-08-17 12:00"}, {"balance": 24.31, "time": "2026-08-18 00:00"}, {"balance": 23.71, "time": "2026-08-18 00:00"}, {"balance": 24.32, "time": "2026-08-19 00:00"}, {"balance": 26.72, "time": "2026-08-19 12:00"}, {"balance": 29.12, "time": "2026-08-22 00:00"}];
         const labels = equityData.map(item => item.time);
         const dataPoints = equityData.map(item => item.balance);
         const styles = getComputedStyle(document.documentElement);
