@@ -1103,7 +1103,7 @@
         "balance_after": 42.34
       }
     ],
-    "last_run": "2026-10-22 21:30 UTC"
+    "last_run": "2026-10-22 22:00 UTC"
   },
   "intraday": {
     "forward_test_start_ts": null,
