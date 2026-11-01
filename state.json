@@ -1271,7 +1271,7 @@
         "balance_after": 42.43
       }
     ],
-    "last_run": "2026-11-01 00:00 UTC"
+    "last_run": "2026-11-01 00:30 UTC"
   },
   "intraday": {
     "forward_test_start_ts": null,
