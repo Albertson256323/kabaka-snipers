@@ -8,7 +8,7 @@
     "forward_test_start_ts": 1786244430379,
     "run_until_ts": null,
     "starting_balance": 30.0,
-    "balance": 44.38,
+    "balance": 43.78,
     "closed_trades": [
       {
         "symbol": "SOL/USDT",
@@ -1473,9 +1473,21 @@
         "outcome": "LOSS",
         "r_multiple": -1.0,
         "balance_after": 44.38
+      },
+      {
+        "symbol": "ETH/USDT",
+        "type": "BUY",
+        "signal_time": 1793577600000.0,
+        "entry_time": 1793620800000.0,
+        "exit_time": 1793635200000.0,
+        "entry_price": 2277.66,
+        "score": 61.5,
+        "outcome": "LOSS",
+        "r_multiple": -1.0,
+        "balance_after": 43.78
       }
     ],
-    "last_run": "2026-11-12 12:06 UTC"
+    "last_run": "2026-11-12 20:12 UTC"
   },
   "intraday": {
     "forward_test_start_ts": null,
